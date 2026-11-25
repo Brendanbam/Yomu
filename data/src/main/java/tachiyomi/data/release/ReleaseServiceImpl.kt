@@ -34,7 +34,11 @@ class ReleaseServiceImpl(
             }
         }
 
-        val downloadLink = getDownloadLink(release = release, isFoss = arguments.isFoss) ?: return null
+        val downloadLink = selectDownloadLink(
+            assets = release.assets,
+            supportedAbis = Build.SUPPORTED_ABIS.toList(),
+            isFoss = arguments.isFoss,
+        ) ?: return null
 
         return Release(
             version = release.version,
@@ -46,21 +50,50 @@ class ReleaseServiceImpl(
         )
     }
 
-    private fun getDownloadLink(release: GithubRelease, isFoss: Boolean): String? {
-        val map = release.assets.associate { asset ->
-            BUILD_TYPES.find { "-$it" in asset.name } to asset.downloadLink
-        }
-
-        return if (!isFoss) {
-            map[Build.SUPPORTED_ABIS[0]] ?: map[null]
-        } else {
-            map[FOSS]
-        }
-    }
-
     companion object {
         private const val FOSS = "foss"
-        private val BUILD_TYPES = listOf(FOSS, "arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        private const val UNIVERSAL = "universal"
+        private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+
+        /**
+         * Selects the best matching APK asset from a GitHub release:
+         * - Only `.apk` assets are considered (checksums/notes are ignored).
+         * - FOSS builds only match `-foss` APKs.
+         * - Standard builds walk [supportedAbis] in device priority order, falling back
+         *   to `-universal.apk` or an untagged generic APK.
+         */
+        fun selectDownloadLink(
+            assets: List<GitHubAsset>,
+            supportedAbis: List<String>,
+            isFoss: Boolean,
+        ): String? {
+            val apkAssets = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
+            if (apkAssets.isEmpty()) return null
+
+            if (isFoss) {
+                return apkAssets.firstOrNull { "-$FOSS" in it.name.lowercase() }?.downloadLink
+            }
+
+            val standardApks = apkAssets.filterNot { "-$FOSS" in it.name.lowercase() }
+            if (standardApks.isEmpty()) return null
+
+            for (abi in supportedAbis) {
+                val abiLower = abi.lowercase()
+                val match = standardApks.firstOrNull { "-$abiLower" in it.name.lowercase() }
+                if (match != null) return match.downloadLink
+            }
+
+            // Explicit universal fallback
+            standardApks.firstOrNull { "-$UNIVERSAL" in it.name.lowercase() }?.let {
+                return it.downloadLink
+            }
+
+            // Generic APK without a specific ABI suffix
+            return standardApks.firstOrNull { asset ->
+                val lower = asset.name.lowercase()
+                KNOWN_ABIS.none { "-$it" in lower }
+            }?.downloadLink
+        }
 
         /**
          * Regular expression that matches a mention to a valid GitHub username, like it's

@@ -14,24 +14,22 @@ class AppUpdateChecker(
 ) {
 
     suspend fun checkForUpdate(forceCheck: Boolean = false): GetApplicationRelease.Result {
-        // Disable app update checks for older Android versions that we're going to drop support for
-        // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-        //     return GetApplicationRelease.Result.OsTooOld
-        // }
+        // Yomu currently publishes standard signed releases only; unsupported channels return NoNewUpdate cleanly.
+        if (isFossBuildType || isNightlyBuildType) {
+            return GetApplicationRelease.Result.NoNewUpdate
+        }
 
         return withContext(Dispatchers.IO) {
-            val result = getApplicationRelease.await(
+            getApplicationRelease.await(
                 GetApplicationRelease.Arguments(
-                    isFossBuildType,
-                    isNightlyBuildType,
-                    BuildConfig.COMMIT_COUNT.toInt(),
-                    BuildConfig.VERSION_NAME,
-                    GITHUB_REPO,
-                    forceCheck,
+                    isFoss = false,
+                    isNightly = false,
+                    commitCount = BuildConfig.COMMIT_COUNT.toIntOrNull() ?: 0,
+                    versionName = BuildConfig.VERSION_NAME,
+                    repository = GITHUB_REPO,
+                    forceCheck = forceCheck,
                 ),
             )
-
-            result
         }
     }
 }

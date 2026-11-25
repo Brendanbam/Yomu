@@ -11,12 +11,12 @@ class GetApplicationRelease(
     suspend fun await(arguments: Arguments): Result {
         val release = service.latest(arguments) ?: return Result.NoNewUpdate
 
-        // Check if latest version is different from current version
+        // Check if latest version is strictly newer than current version
         val isNewVersion = isNewVersion(
-            arguments.isNightly,
-            arguments.commitCount,
-            arguments.versionName,
-            release.version,
+            isNightly = arguments.isNightly,
+            commitCount = arguments.commitCount,
+            versionName = arguments.versionName,
+            versionTag = release.version,
         )
         return when {
             isNewVersion -> Result.NewUpdate(release)
@@ -24,33 +24,47 @@ class GetApplicationRelease(
         }
     }
 
-    private fun isNewVersion(
-        isNightly: Boolean,
-        commitCount: Int,
-        versionName: String,
-        versionTag: String,
-    ): Boolean {
-        // Removes prefixes like "r" or "v"
-        val newVersion = versionTag.replace("[^\\d.]".toRegex(), "")
-        return if (isNightly) {
-            // Nightly builds: based on releases in "mihonapp/mihon-preview" repo
-            // tagged as something like "r1234"
-            newVersion.toInt() > commitCount
-        } else {
-            // Release builds: based on releases in "mihonapp/mihon" repo
-            // tagged as something like "v0.1.2"
-            val oldVersion = versionName.replace("[^\\d.]".toRegex(), "")
+    companion object {
+        fun isNewVersion(
+            isNightly: Boolean,
+            commitCount: Int,
+            versionName: String,
+            versionTag: String,
+        ): Boolean {
+            val cleanedTag = versionTag
+                .trim()
+                .removePrefix("v")
+                .removePrefix("V")
+                .removePrefix("r")
+                .removePrefix("R")
+                .substringBefore("-")
+                .substringBefore("+")
 
-            val newSemVer = newVersion.split(".").map { it.toInt() }
-            val oldSemVer = oldVersion.split(".").map { it.toInt() }
+            return if (isNightly) {
+                val remoteCount = cleanedTag.toIntOrNull() ?: return false
+                remoteCount > commitCount
+            } else {
+                val cleanedCurrent = versionName
+                    .trim()
+                    .removePrefix("v")
+                    .removePrefix("V")
+                    .substringBefore("-")
+                    .substringBefore("+")
 
-            oldSemVer.mapIndexed { index, i ->
-                if (newSemVer[index] > i) {
-                    return true
+                val newSemVer = cleanedTag.split(".").map { it.toIntOrNull() ?: return false }
+                val oldSemVer = cleanedCurrent.split(".").map { it.toIntOrNull() ?: return false }
+                if (newSemVer.isEmpty() || oldSemVer.isEmpty()) return false
+
+                val maxLen = maxOf(newSemVer.size, oldSemVer.size)
+                for (index in 0 until maxLen) {
+                    val newPart = newSemVer.getOrElse(index) { 0 }
+                    val oldPart = oldSemVer.getOrElse(index) { 0 }
+                    if (newPart != oldPart) {
+                        return newPart > oldPart
+                    }
                 }
+                false
             }
-
-            false
         }
     }
 

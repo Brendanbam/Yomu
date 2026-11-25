@@ -31,14 +31,34 @@ if (Config.includeTelemetry) {
 
 val keystorePropertiesFile = layout.settingsDirectory.file("keystore.properties").asFile
 
+val yomuVersionNameOverride = providers.gradleProperty("yomuVersionName").orNull
+    ?: System.getenv("YOMU_VERSION_NAME")?.takeIf { it.isNotBlank() }
+val resolvedYomuVersionName = yomuVersionNameOverride?.removePrefix("v")?.trim() ?: "2.0.0"
+
+val yomuVersionCodeOverride = (
+    providers.gradleProperty("yomuVersionCode").orNull
+        ?: System.getenv("YOMU_VERSION_CODE")?.takeIf { it.isNotBlank() }
+    )?.toIntOrNull()
+
+val resolvedYomuVersionCode = yomuVersionCodeOverride ?: run {
+    val parts = resolvedYomuVersionName.substringBefore("-").split(".").mapNotNull { it.toIntOrNull() }
+    if (parts.size >= 3) {
+        // Monotonic SemVer-derived versionCode strictly greater than v1.0.0 (100):
+        // e.g. 1.0.1 -> 10001, 2.0.0 -> 20000, 2.1.3 -> 20103
+        parts[0] * 10_000 + parts[1] * 100 + parts[2]
+    } else {
+        20_000
+    }
+}
+
 android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
         applicationId = "app.yomu"
 
-        versionCode = 100
-        versionName = "1.0.0"
+        versionCode = resolvedYomuVersionCode
+        versionName = resolvedYomuVersionName
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
@@ -47,12 +67,23 @@ android {
     }
 
     if (System.getenv("MIHON_GITHUB_RELEASE").toBoolean()) {
+        val envStoreFile = System.getenv("storeFile")?.takeIf { it.isNotBlank() }
+            ?: error("MIHON_GITHUB_RELEASE is enabled but storeFile environment variable is missing")
+        val envStorePassword = System.getenv("storePassword")?.takeIf { it.isNotBlank() }
+            ?: error("MIHON_GITHUB_RELEASE is enabled but storePassword environment variable is missing")
+        val envKeyAlias = System.getenv("keyAlias")?.takeIf { it.isNotBlank() }
+            ?: error("MIHON_GITHUB_RELEASE is enabled but keyAlias environment variable is missing")
+        val envKeyPassword = System.getenv("keyPassword")?.takeIf { it.isNotBlank() }
+            ?: error("MIHON_GITHUB_RELEASE is enabled but keyPassword environment variable is missing")
+        val keystoreFile = file(envStoreFile)
+        check(keystoreFile.exists()) { "Release signing keystore not found at ${keystoreFile.absolutePath}" }
+
         signingConfigs {
             named("debug") {
-                storeFile = file(System.getenv("storeFile"))
-                storePassword = System.getenv("storePassword")
-                keyAlias = System.getenv("keyAlias")
-                keyPassword = System.getenv("keyPassword")
+                storeFile = keystoreFile
+                storePassword = envStorePassword
+                keyAlias = envKeyAlias
+                keyPassword = envKeyPassword
             }
         }
     } else if (keystorePropertiesFile.exists()) {
