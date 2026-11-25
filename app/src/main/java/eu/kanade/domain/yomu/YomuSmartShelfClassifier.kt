@@ -108,9 +108,7 @@ object YomuSmartShelfClassifier {
                 last != null && last < thirtyDaysAgo && unread > 0L
             }
             YomuSmartShelf.READY_OFFLINE -> {
-                entry.isLocal ||
-                    entry.hasNextReadableChapterDownloaded ||
-                    (unread > 0L && entry.downloadCount >= unread)
+                entry.isLocal || entry.hasNextReadableChapterDownloaded
             }
             YomuSmartShelf.FULLY_DOWNLOADED -> {
                 entry.isLocal ||
