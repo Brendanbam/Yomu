@@ -38,6 +38,7 @@ data class SmartShelfEntry(
     val chapterFetchedAt: Instant?,
     val lastRead: Instant?,
     val hasNextReadableChapterDownloaded: Boolean = false,
+    val hasFullOfflineArchive: Boolean = false,
 ) {
     val unreadCount: Long
         get() = (totalChapters - readCount).coerceAtLeast(0L)
@@ -111,7 +112,7 @@ object YomuSmartShelfClassifier {
                 entry.hasNextReadableChapterDownloaded || (entry.isLocal && unread > 0L)
             }
             YomuSmartShelf.FULLY_DOWNLOADED -> {
-                entry.totalChapters > 0L && (entry.isLocal || entry.downloadCount >= entry.totalChapters)
+                entry.totalChapters > 0L && (entry.isLocal || entry.hasFullOfflineArchive)
             }
         }
     }
