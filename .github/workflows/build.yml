@@ -76,8 +76,49 @@ jobs:
           name: arm64-v8a-${{ github.sha }}
           path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
 
+      - name: Upload emulator APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: x86_64-${{ github.sha }}
+          path: app/build/outputs/apk/release/app-x86_64-release.apk
+          if-no-files-found: error
+
       - name: Upload mapping
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mapping-${{ github.sha }}
           path: app/build/outputs/mapping/release
+
+  emulator-smoke:
+    name: Android launch and rotation smoke test
+    needs: build
+    runs-on: 'ubuntu-26.04'
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download compiled emulator APK
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: x86_64-${{ github.sha }}
+          path: smoke-apk
+
+      - name: Install emulator system image
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm || { echo "::error::KVM unavailable on this runner"; exit 1; }
+          sudo chmod 666 /dev/kvm
+          sdkmanager --install "emulator" "system-images;android-35;google_apis;x86_64"
+          echo no | avdmanager create avd --force --name yomu-ci --package "system-images;android-35;google_apis;x86_64"
+
+      - name: Run launch, orientation and restart smoke checks
+        run: bash .github/scripts/yomu-emulator-smoke.sh smoke-apk/app-x86_64-release.apk
+
+      - name: Upload runtime screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: emulator-smoke-${{ github.sha }}
+          path: smoke-results/
+          if-no-files-found: warn
