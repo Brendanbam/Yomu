@@ -77,7 +77,7 @@ def restore_fixture():
     with suppress(AssertionError):
         find("Not now", timeout=6)
         tap("Skip this version")
-        tap("Not now")
+        tap("OK")
     tap("Next")
     tap("Select a folder")
     # DocumentsUI normally starts at the internal storage root on a clean AVD.
