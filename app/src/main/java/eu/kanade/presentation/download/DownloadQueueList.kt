@@ -310,6 +310,7 @@ private fun ReorderableCollectionItemScope.DownloadQueueItem(
     modifier: Modifier = Modifier,
 ) {
     val progress by remember(download) { download.pagesProgressFlow() }.collectAsState(null)
+    val status by download.statusFlow.collectAsState()
     val animatedProgress by animateFloatAsState(progress?.fraction ?: 0f, label = "progress")
 
     Surface(
@@ -353,6 +354,13 @@ private fun ReorderableCollectionItemScope.DownloadQueueItem(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
                 )
+                if (status == Download.State.ERROR) {
+                    Text(
+                        text = stringResource(MR.strings.yomu_download_retry_hint),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 LinearProgressIndicator(
                     progress = { animatedProgress },
                     modifier = Modifier
