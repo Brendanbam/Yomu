@@ -2,26 +2,24 @@ package eu.kanade.tachiyomi.ui.library
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ReportDrawnWhen
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -37,11 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.lifecycle.ViewModelStore
@@ -59,9 +55,7 @@ import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
-import eu.kanade.presentation.theme.yomu.YomuSerifFontFamily
 import eu.kanade.presentation.theme.yomu.YomuShapes
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.home.ShowBottomNavEvent
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
@@ -197,127 +191,95 @@ fun LibraryTab() {
             else -> {
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val useSplitPane = splitPaneEnabled && maxWidth >= 840.dp && !state.selectionMode
+                    val showInspector = useSplitPane && inspectedMangaId != null
+                    var libraryFraction by rememberSaveable { mutableStateOf(0.56f) }
+                    val availableWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+                    val minFraction = (360.dp / maxWidth).coerceIn(0.25f, 0.5f)
+                    val maxFraction = (1f - 320.dp / maxWidth).coerceIn(0.5f, 0.75f)
+                    val fraction = libraryFraction.coerceIn(minFraction, maxFraction)
 
-                    if (!useSplitPane) {
-                        LibraryContent(
-                            categories = state.displayedCategories,
-                            searchQuery = state.searchQuery,
-                            selection = state.selection,
-                            contentPadding = contentPadding,
-                            currentPage = state.coercedActiveCategoryIndex,
-                            hasActiveFilters = state.hasActiveFilters,
-                            showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                            onChangeCurrentPage = viewModel::updateActiveCategoryIndex,
-                            onClickManga = { navigator.push(MangaRoute(it)) },
-                            onContinueReadingClicked = { it: LibraryManga ->
-                                scope.launch {
-                                    val chapter = viewModel.getNextUnreadChapter(it.manga)
-                                    if (chapter != null) {
-                                        context.startActivity(
-                                            ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
-                                        )
+                    BackHandler(enabled = showInspector) { inspectedMangaId = null }
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(if (showInspector) fraction else 1f)
+                                .fillMaxHeight(),
+                        ) {
+                            LibraryContent(
+                                categories = state.displayedCategories,
+                                searchQuery = state.searchQuery,
+                                selection = state.selection,
+                                contentPadding = contentPadding,
+                                currentPage = state.coercedActiveCategoryIndex,
+                                hasActiveFilters = state.hasActiveFilters,
+                                showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                                onChangeCurrentPage = viewModel::updateActiveCategoryIndex,
+                                onClickManga = { mangaId ->
+                                    if (useSplitPane) {
+                                        inspectedMangaId = mangaId
                                     } else {
-                                        snackbarHostState.showSnackbar(
-                                            context.stringResource(MR.strings.no_next_chapter),
-                                        )
+                                        navigator.push(MangaRoute(mangaId))
                                     }
-                                }
-                                Unit
-                            }.takeIf { state.showMangaContinueButton },
-                            onToggleSelection = viewModel::toggleSelection,
-                            onToggleRangeSelection = { category, manga ->
-                                viewModel.toggleRangeSelection(category, manga)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            },
-                            onRefresh = { onClickRefresh(state.activeCategory) },
-                            onGlobalSearchClicked = {
-                                navigator.push(GlobalSearchRoute(viewModel.state.value.searchQuery ?: ""))
-                            },
-                            getItemCountForCategory = { state.getItemCountForCategory(it) },
-                            getDisplayMode = { viewModel.getDisplayMode() },
-                            getColumnsForOrientation = { viewModel.getColumnsForOrientation(it) },
-                            getItemsForCategory = { state.getItemsForCategory(it) },
-                        )
-                    } else {
-                        BackHandler(enabled = inspectedMangaId != null) {
-                            inspectedMangaId = null
-                        }
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(0.56f)
-                                    .fillMaxHeight(),
-                            ) {
-                                LibraryContent(
-                                    categories = state.displayedCategories,
-                                    searchQuery = state.searchQuery,
-                                    selection = state.selection,
-                                    contentPadding = contentPadding,
-                                    currentPage = state.coercedActiveCategoryIndex,
-                                    hasActiveFilters = state.hasActiveFilters,
-                                    showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                                    onChangeCurrentPage = viewModel::updateActiveCategoryIndex,
-                                    onClickManga = { mangaId ->
-                                        if (inspectedMangaId == mangaId) {
-                                            navigator.push(MangaRoute(mangaId))
+                                },
+                                onContinueReadingClicked = { it: LibraryManga ->
+                                    scope.launch {
+                                        val chapter = viewModel.getNextUnreadChapter(it.manga)
+                                        if (chapter != null) {
+                                            context.startActivity(
+                                                ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
+                                            )
                                         } else {
-                                            inspectedMangaId = mangaId
+                                            snackbarHostState.showSnackbar(
+                                                context.stringResource(MR.strings.no_next_chapter),
+                                            )
                                         }
-                                    },
-                                    onContinueReadingClicked = { it: LibraryManga ->
-                                        scope.launch {
-                                            val chapter = viewModel.getNextUnreadChapter(it.manga)
-                                            if (chapter != null) {
-                                                context.startActivity(
-                                                    ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
-                                                )
-                                            } else {
-                                                snackbarHostState.showSnackbar(
-                                                    context.stringResource(MR.strings.no_next_chapter),
-                                                )
-                                            }
-                                        }
-                                        Unit
-                                    }.takeIf { state.showMangaContinueButton },
-                                    onToggleSelection = viewModel::toggleSelection,
-                                    onToggleRangeSelection = { category, manga ->
-                                        viewModel.toggleRangeSelection(category, manga)
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    },
-                                    onRefresh = { onClickRefresh(state.activeCategory) },
-                                    onGlobalSearchClicked = {
-                                        navigator.push(GlobalSearchRoute(viewModel.state.value.searchQuery ?: ""))
-                                    },
-                                    getItemCountForCategory = { state.getItemCountForCategory(it) },
-                                    getDisplayMode = { viewModel.getDisplayMode() },
-                                    getColumnsForOrientation = { viewModel.getColumnsForOrientation(it) },
-                                    getItemsForCategory = { state.getItemsForCategory(it) },
-                                )
-                            }
-
-                            VerticalDivider(
-                                thickness = 1.dp,
-                                color = style.shelfPalette.subtleBorder,
+                                    }
+                                    Unit
+                                }.takeIf { state.showMangaContinueButton },
+                                onToggleSelection = viewModel::toggleSelection,
+                                onToggleRangeSelection = { category, manga ->
+                                    viewModel.toggleRangeSelection(category, manga)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onRefresh = { onClickRefresh(state.activeCategory) },
+                                onGlobalSearchClicked = {
+                                    navigator.push(GlobalSearchRoute(viewModel.state.value.searchQuery ?: ""))
+                                },
+                                getItemCountForCategory = { state.getItemCountForCategory(it) },
+                                getDisplayMode = { viewModel.getDisplayMode() },
+                                getColumnsForOrientation = { viewModel.getColumnsForOrientation(it) },
+                                getItemsForCategory = { state.getItemsForCategory(it) },
                             )
-
+                        }
+                        if (showInspector) {
                             Box(
                                 modifier = Modifier
-                                    .weight(0.44f)
+                                    .width(16.dp)
+                                    .fillMaxHeight()
+                                    .draggable(
+                                        orientation = Orientation.Horizontal,
+                                        state = rememberDraggableState { delta ->
+                                            if (availableWidthPx > 0f) {
+                                                libraryFraction = (fraction + delta / availableWidthPx)
+                                                    .coerceIn(minFraction, maxFraction)
+                                            }
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                VerticalDivider(color = style.shelfPalette.subtleBorder, thickness = 2.dp)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f - fraction)
                                     .fillMaxHeight()
                                     .background(MaterialTheme.colorScheme.background),
                             ) {
-                                val selectedId = inspectedMangaId
-                                if (selectedId != null) {
+                                inspectedMangaId?.let { mangaId ->
                                     SplitPaneMangaDetailsHost(
-                                        mangaId = selectedId,
+                                        mangaId = mangaId,
                                         onClose = { inspectedMangaId = null },
-                                        onExpandFullScreen = { navigator.push(MangaRoute(selectedId)) },
-                                    )
-                                } else {
-                                    SplitPaneEmptyInspectorPrompt(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(contentPadding),
+                                        onExpandFullScreen = { navigator.push(MangaRoute(mangaId)) },
                                     )
                                 }
                             }
@@ -436,40 +398,6 @@ private fun SplitPaneMangaDetailsHost(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun SplitPaneEmptyInspectorPrompt(
-    modifier: Modifier = Modifier,
-) {
-    val style = LocalYomuStyle.current
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_yomu),
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            text = stringResource(MR.strings.app_name),
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = YomuSerifFontFamily,
-                fontWeight = FontWeight.SemiBold,
-            ),
-            color = style.shelfPalette.goldAccent,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(MR.strings.yomu_details_select_book_prompt),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
