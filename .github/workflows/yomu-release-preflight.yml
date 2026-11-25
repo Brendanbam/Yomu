@@ -1,0 +1,32 @@
+name: Yomu 2.1 Android preflight
+on:
+  push:
+    branches: [yomu-release-preflight-v2.1.0]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Download the previously compiled review APK
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          github-token: ${{ github.token }}
+          run-id: 45642042421
+          name: x86_64-9f085e3fe2ce0a472f745d7efe4d4b42a62929fb
+          path: smoke-apk
+      - name: Create the Android virtual device
+        run: bash .github/scripts/setup-yomu-ci-avd.sh
+      - name: Exercise the app
+        run: bash .github/scripts/yomu-emulator-smoke.sh smoke-apk/app-x86_64-release.apk
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: yomu-preflight
+          path: smoke-results/
+          if-no-files-found: warn
