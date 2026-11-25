@@ -1,64 +1,90 @@
 package eu.kanade.domain.yomu
 
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.source.local.isLocal
 
-internal data class YomuOfflineAvailability(
+data class YomuOfflineAvailability(
     val nextUnreadDownloaded: Boolean = false,
     val allChaptersDownloaded: Boolean = false,
 )
 
+internal fun classifyOfflineChapters(
+    chapters: List<Chapter>,
+    nextUnread: Chapter?,
+    downloadedIds: Set<Long>,
+): YomuOfflineAvailability = YomuOfflineAvailability(
+    nextUnreadDownloaded = nextUnread?.id in downloadedIds,
+    allChaptersDownloaded = chapters.isNotEmpty() && chapters.all { it.id in downloadedIds },
+)
+
 /**
- * Verifies chapter availability using the canonical reading order and download cache.
- * Aggregate download counts are only a cheap prefilter, never proof of readiness.
+ * Verifies real chapter identities in bounded database batches, rather than running
+ * a query for every book or using aggregate download counts as proof of readiness.
  */
-internal suspend fun LibraryManga.getOfflineAvailability(
-    downloadCount: Int,
-    getChaptersByMangaId: GetChaptersByMangaId,
-    downloadCache: DownloadCache,
-    checkFullArchive: Boolean = false,
-): YomuOfflineAvailability {
-    if (manga.isLocal()) {
-        return YomuOfflineAvailability(unreadCount > 0L, totalChapters > 0L)
-    }
-    if (downloadCount <= 0 || totalChapters <= 0L) return YomuOfflineAvailability()
-
-    fun isDownloaded(chapter: Chapter): Boolean = downloadCache.isChapterDownloaded(
-        chapterName = chapter.name,
-        chapterScanlator = chapter.scanlator,
-        chapterUrl = chapter.url,
-        mangaTitle = manga.title,
-        sourceId = manga.source,
-    )
-
-    return try {
-        val nextChapter = if (unreadCount > 0L) {
-            getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true)
-                .asSequence()
-                .filterNot { it.read }
-                .minWithOrNull(getChapterSort(manga, sortDescending = false))
-        } else {
-            null
+@Inject
+class GetYomuOfflineAvailability(
+    private val chapterRepository: ChapterRepository,
+    private val mangaRepository: MangaRepository,
+    private val downloadCache: DownloadCache,
+) {
+    suspend fun await(
+        library: List<LibraryManga>,
+        downloadCounts: Map<Long, Int>,
+        checkFullArchive: Boolean = false,
+    ): Map<Long, YomuOfflineAvailability> {
+        val result = mutableMapOf<Long, YomuOfflineAvailability>()
+        val candidates = library.distinctBy { it.id }.filter { entry ->
+            if (entry.manga.isLocal()) {
+                result[entry.id] = YomuOfflineAvailability(
+                    nextUnreadDownloaded = entry.unreadCount > 0L,
+                    allChaptersDownloaded = entry.totalChapters > 0L,
+                )
+                false
+            } else {
+                val downloads = downloadCounts[entry.id] ?: 0
+                downloads > 0 && entry.totalChapters > 0L &&
+                    (entry.unreadCount > 0L || (checkFullArchive && downloads >= entry.totalChapters))
+            }
         }
-        val nextDownloaded = nextChapter?.let(::isDownloaded) == true
-        val fullArchive = if (checkFullArchive && downloadCount >= totalChapters) {
-            val chapters = getChaptersByMangaId.await(manga.id, applyScanlatorFilter = false)
-            chapters.isNotEmpty() && chapters.all(::isDownloaded)
-        } else {
-            false
+
+        for (batch in candidates.chunked(200)) {
+            try {
+                val ids = batch.map { it.id }
+                val chaptersByManga = chapterRepository.getChaptersByMangaIds(ids)
+                val exclusions = mangaRepository.getExcludedScanlatorsByMangaIds(ids)
+                for (entry in batch) {
+                    val chapters = chaptersByManga[entry.id].orEmpty()
+                    val excluded = exclusions[entry.id].orEmpty().toSet()
+                    val nextUnread = chapters.asSequence()
+                        .filterNot { it.read || it.scanlator?.let { name -> name in excluded } == true }
+                        .minWithOrNull(getChapterSort(entry.manga, sortDescending = false))
+                    val checkAll = checkFullArchive && (downloadCounts[entry.id] ?: 0) >= chapters.size
+                    val toCheck = if (checkAll) chapters else listOfNotNull(nextUnread)
+                    val downloadedIds = downloadCache.getDownloadedChapterIds(
+                        toCheck,
+                        entry.manga.title,
+                        entry.manga.source,
+                    )
+                    val availability = classifyOfflineChapters(chapters, nextUnread, downloadedIds)
+                    result[entry.id] = availability.copy(
+                        allChaptersDownloaded = checkAll && availability.allChaptersDownloaded,
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                logcat(LogPriority.ERROR, error) { "Could not verify Yomu offline availability batch" }
+            }
         }
-        YomuOfflineAvailability(nextDownloaded, fullArchive)
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Exception) {
-        logcat(LogPriority.ERROR, error) { "Could not verify Yomu offline readiness" }
-        YomuOfflineAvailability()
+        return result
     }
 }

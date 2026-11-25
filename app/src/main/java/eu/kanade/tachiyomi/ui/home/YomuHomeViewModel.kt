@@ -11,9 +11,9 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.YomuHomeSection
+import eu.kanade.domain.yomu.GetYomuOfflineAvailability
 import eu.kanade.domain.yomu.YomuContinueReadingResolver
 import eu.kanade.domain.yomu.YomuContinueReadingState
-import eu.kanade.domain.yomu.getOfflineAvailability
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.model.SManga
@@ -39,8 +39,8 @@ import kotlinx.datetime.minus
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.chapter.service.getChapterSort
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -66,6 +66,7 @@ class YomuHomeViewModel(
     private val getManga: GetManga,
     private val getUpdates: GetUpdates,
     private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val getYomuOfflineAvailability: GetYomuOfflineAvailability,
     private val getEnabledSources: GetEnabledSources,
     private val sourceManager: SourceManager,
     private val downloadCache: DownloadCache,
@@ -116,11 +117,19 @@ class YomuHomeViewModel(
         .map { it.size }
         .distinctUntilChanged()
 
+    private val offlineSnapshotFlow = combine(libraryFlow, downloadSignalFlow) { libraryState, _ ->
+        val library = libraryState.dataOrEmpty()
+        val counts = downloadCache.getDownloadCounts(library.map { it.manga })
+        val availability = getYomuOfflineAvailability.await(library, counts)
+        Triple(libraryState, counts, availability)
+    }
+
     val state: StateFlow<State> = combine(
-        combine(libraryFlow, historyFlow, updatesFlow, ::Triple),
-        combine(sourcesFlow, downloadSignalFlow, activeDownloadCountFlow, ::Triple),
+        combine(offlineSnapshotFlow, historyFlow, updatesFlow, ::Triple),
+        combine(sourcesFlow, activeDownloadCountFlow, ::Pair),
         uiPreferences.yomuHomeSectionsOrder.changes(),
-    ) { (libraryState, historyState, updatesState), (sourcesState, _, activeDownloadsCount), sectionsOrderRaw ->
+    ) { (snapshot, historyState, updatesState), (sourcesState, activeDownloadsCount), sectionsOrderRaw ->
+        val (libraryState, downloadCountsByMangaId, offlineAvailability) = snapshot
         val isInitialLoading = libraryState is SectionLoadState.Loading &&
             historyState is SectionLoadState.Loading
 
@@ -130,11 +139,6 @@ class YomuHomeViewModel(
         val sources = sourcesState.dataOrEmpty()
 
         val libraryById = libraryList.associateBy { it.id }
-        val downloadCountsByMangaId = if (libraryList.isNotEmpty()) {
-            downloadCache.getDownloadCounts(libraryList.map { it.manga })
-        } else {
-            emptyMap()
-        }
 
         val now = Clock.System.now()
         val rediscoverCutoff = now - 14.days
@@ -214,23 +218,9 @@ class YomuHomeViewModel(
             .take(9)
             .map { toShelfBook(it, downloadCountsByMangaId) }
 
-        val offlineItems = libraryList.distinctBy { it.id }.mapNotNull { lib ->
-            val dlCount = if (lib.manga.isLocal()) {
-                lib.totalChapters.toInt()
-            } else {
-                downloadCountsByMangaId[lib.manga.id] ?: 0
-            }
-            val isReady = lib.getOfflineAvailability(
-                dlCount,
-                getChaptersByMangaId,
-                downloadCache,
-            ).nextUnreadDownloaded
-            if (isReady) {
-                toShelfBook(lib, downloadCountsByMangaId)
-            } else {
-                null
-            }
-        }
+        val offlineItems = libraryList.distinctBy { it.id }
+            .filter { offlineAvailability[it.id]?.nextUnreadDownloaded == true }
+            .map { toShelfBook(it, downloadCountsByMangaId) }
 
         val pinnedSources = sources
             .filter { Pin.Actual in it.pin || it.isUsedLast }
