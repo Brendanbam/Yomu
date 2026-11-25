@@ -16,6 +16,7 @@ import eu.kanade.domain.yomu.YomuContinueReadingState
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -141,8 +142,17 @@ class YomuHomeViewModel(
         val rediscoverCutoff = now - 14.days
 
         // Resolve Continue Reading across recent history candidates using Mihon's GetNextChapters semantics
-        val continueCandidates = historyList.take(8).map { history ->
-            buildContinueCandidate(history = history, libraryEntry = libraryById[history.mangaId])
+        var continueLookupError: Exception? = null
+        val continueCandidates = historyList.distinctBy { it.mangaId }.take(8).mapNotNull { history ->
+            try {
+                buildContinueCandidate(history = history, libraryEntry = libraryById[history.mangaId])
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                logcat(LogPriority.ERROR, error) { "Failed to resolve Continue Reading" }
+                continueLookupError = error
+                null
+            }
         }
         val continueReading = YomuContinueReadingResolver.selectBest(continueCandidates)
 
@@ -256,11 +266,11 @@ class YomuHomeViewModel(
         State(
             isLoading = isInitialLoading,
             libraryError = (libraryState as? SectionLoadState.Error)?.message,
-            historyError = (historyState as? SectionLoadState.Error)?.message,
+            historyError = (historyState as? SectionLoadState.Error)?.message ?: continueLookupError?.message,
             updatesError = (updatesState as? SectionLoadState.Error)?.message,
             sourcesError = (sourcesState as? SectionLoadState.Error)?.message,
             hasLibraryError = libraryState is SectionLoadState.Error,
-            hasHistoryError = historyState is SectionLoadState.Error,
+            hasHistoryError = historyState is SectionLoadState.Error || (continueLookupError != null && continueReading == null),
             hasUpdatesError = updatesState is SectionLoadState.Error,
             heroCover = heroCover,
             heroTitle = heroTitle,
@@ -287,23 +297,22 @@ class YomuHomeViewModel(
         history: HistoryWithRelations,
         libraryEntry: LibraryManga?,
     ): YomuContinueReadingResolver.CandidateInput {
-        val manga = libraryEntry?.manga ?: runCatching { getManga.await(history.mangaId) }.getOrNull()
-        val lastReadChapter = runCatching { getChapter.await(history.chapterId) }.getOrNull()
+        val manga = libraryEntry?.manga ?: getManga.await(history.mangaId)
+        val lastReadChapter = getChapter.await(history.chapterId)
 
         // Match Mihon's exact chapter resume order:
         // 1) Next unread chapter from the last read chapter onward (skipping any already-read chapters)
         // 2) If none remain after lastReadChapter, fall back to any remaining unread chapter in the series
-        val nextAfterCurrent = runCatching {
-            getNextChapters.await(
-                mangaId = history.mangaId,
-                fromChapterId = history.chapterId,
-                onlyUnread = false,
-            ).firstOrNull { !it.read }
-        }.getOrNull()
+        val nextAfterCurrent = getNextChapters.await(
+            mangaId = history.mangaId,
+            fromChapterId = history.chapterId,
+            onlyUnread = false,
+        ).firstOrNull { !it.read }
 
-        val nextResumable = nextAfterCurrent ?: runCatching {
-            getNextChapters.await(mangaId = history.mangaId, onlyUnread = true).firstOrNull()
-        }.getOrNull()
+        val nextResumable = nextAfterCurrent ?: getNextChapters.await(
+            mangaId = history.mangaId,
+            onlyUnread = true,
+        ).firstOrNull()
 
         val readChaptersCount: Long
         val totalChaptersCount: Long
@@ -311,9 +320,7 @@ class YomuHomeViewModel(
             readChaptersCount = libraryEntry.readCount
             totalChaptersCount = libraryEntry.totalChapters
         } else {
-            val allChapters = runCatching {
-                getChaptersByMangaId.await(history.mangaId, applyScanlatorFilter = true)
-            }.getOrDefault(emptyList())
+            val allChapters = getChaptersByMangaId.await(history.mangaId, applyScanlatorFilter = true)
             totalChaptersCount = allChapters.size.toLong()
             readChaptersCount = allChapters.count { it.read }.toLong()
         }
