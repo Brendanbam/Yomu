@@ -108,11 +108,10 @@ object YomuSmartShelfClassifier {
                 last != null && last < thirtyDaysAgo && unread > 0L
             }
             YomuSmartShelf.READY_OFFLINE -> {
-                entry.isLocal || entry.hasNextReadableChapterDownloaded
+                entry.hasNextReadableChapterDownloaded || (entry.isLocal && unread > 0L)
             }
             YomuSmartShelf.FULLY_DOWNLOADED -> {
-                entry.isLocal ||
-                    (entry.totalChapters > 0L && entry.downloadCount >= entry.totalChapters)
+                entry.totalChapters > 0L && (entry.isLocal || entry.downloadCount >= entry.totalChapters)
             }
         }
     }
