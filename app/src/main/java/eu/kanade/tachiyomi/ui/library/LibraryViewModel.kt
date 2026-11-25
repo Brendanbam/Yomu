@@ -17,6 +17,7 @@ import eu.kanade.core.util.fastFilterNot
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.yomu.isNextUnreadChapterDownloaded
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -427,17 +428,11 @@ class LibraryViewModel(
             libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadCounts.getValue(manga.id)
-                val nextChapter = if (!manga.manga.isLocal() && downloadCount > 0 && manga.unreadCount > 0L) {
-                    getNextChapters.await(manga.id).firstOrNull()
-                } else {
-                    null
-                }
-                val nextDownloaded = nextChapter != null && downloadCache.isChapterDownloaded(
-                    chapterName = nextChapter.name,
-                    chapterScanlator = nextChapter.scanlator,
-                    chapterUrl = nextChapter.url,
-                    mangaTitle = manga.manga.title,
-                    sourceId = manga.manga.source,
+                val nextDownloaded = manga.isNextUnreadChapterDownloaded(
+                    downloadCount,
+                    getChaptersByMangaId,
+                    downloadManager,
+                    downloadCache,
                 )
                 LibraryItem(
                     libraryManga = manga,
