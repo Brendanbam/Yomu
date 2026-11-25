@@ -11,6 +11,7 @@ data class LibraryItem(
     val sourceLanguage: String,
     val badges: Badges,
     val hasNextReadableChapterDownloaded: Boolean = false,
+    val hasFullOfflineArchive: Boolean = false,
 ) {
     val id: Long = libraryManga.id
 
