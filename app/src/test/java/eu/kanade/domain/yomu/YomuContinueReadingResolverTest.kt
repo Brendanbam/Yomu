@@ -232,4 +232,29 @@ class YomuContinueReadingResolverTest {
         selected.mangaId shouldBe 2L
         selected.isCaughtUp shouldBe true
     }
+
+    @Test
+    fun `selectBest skips unavailable sources when another title can be read`() {
+        val unavailable = YomuContinueReadingResolver.CandidateInput(
+            mangaId = 1L,
+            title = "Unavailable",
+            coverData = cover(),
+            isInLibrary = true,
+            isSourceAvailable = false,
+            lastReadChapter = chapter(5L, read = false),
+            nextResumableChapter = chapter(5L, read = false),
+            readChaptersCount = 4L,
+            totalChaptersCount = 10L,
+            isNextChapterDownloaded = false,
+        )
+        val offline = unavailable.copy(
+            mangaId = 2L,
+            title = "Offline",
+            coverData = cover(2L),
+            isNextChapterDownloaded = true,
+        )
+
+        YomuContinueReadingResolver.selectBest(listOf(unavailable, offline))?.mangaId shouldBe 2L
+        YomuContinueReadingResolver.selectBest(listOf(unavailable))?.mangaId shouldBe 1L
+    }
 }
