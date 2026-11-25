@@ -15,18 +15,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -86,7 +84,6 @@ import mihon.core.navigation.MangaRoute
 import mihon.core.navigation.MigrationConfigRoute
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
-import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
@@ -148,6 +145,7 @@ fun LibraryTab() {
                 onClickFilter = viewModel::showSettingsDialog,
                 onClickRefresh = { scope.launch { onClickRefresh(state.activeCategory) } },
                 onClickGlobalUpdate = { scope.launch { onClickRefresh(null) } },
+                onClickUnifiedSearch = { navigator.push(GlobalSearchRoute(state.searchQuery.orEmpty())) },
                 onClickOpenRandomManga = {
                     scope.launch {
                         val randomItem = viewModel.getRandomLibraryItemForCurrentCategory()
@@ -207,7 +205,8 @@ fun LibraryTab() {
                     val useSplitPane = splitPaneEnabled && maxWidth >= 840.dp && !state.selectionMode
                     val showInspector = useSplitPane && inspectedMangaId != null
                     var libraryFraction by rememberSaveable { mutableStateOf(0.56f) }
-                    val panelWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
+                    val dividerWidth = 48.dp
+                    val panelWidth = (maxWidth - dividerWidth).coerceAtLeast(1.dp)
                     val availableWidthPx = with(LocalDensity.current) { panelWidth.toPx() }
                     val minFraction = (360.dp / panelWidth).coerceIn(0.25f, 0.5f)
                     val maxFraction = (1f - 320.dp / panelWidth).coerceIn(0.5f, 0.75f)
@@ -272,7 +271,7 @@ fun LibraryTab() {
                         if (showInspector) {
                             Box(
                                 modifier = Modifier
-                                    .width(24.dp)
+                                    .width(dividerWidth)
                                     .fillMaxHeight()
                                     .yomuFocusHighlight(YomuShapes.pill)
                                     .semantics {
@@ -294,9 +293,10 @@ fun LibraryTab() {
                                         }
                                         if (event.type == KeyEventType.KeyDown && delta != 0f) {
                                             val direction = if (rtl) -1f else 1f
-                                            libraryFraction = (libraryFraction + delta * direction)
+                                            val next = (fraction + delta * direction)
                                                 .coerceIn(minFraction, maxFraction)
-                                            true
+                                            libraryFraction = next
+                                            next != fraction
                                         } else {
                                             false
                                         }
@@ -307,7 +307,8 @@ fun LibraryTab() {
                                         reverseDirection = rtl,
                                         state = rememberDraggableState { delta ->
                                             if (availableWidthPx > 0f) {
-                                                libraryFraction = (libraryFraction + delta / availableWidthPx)
+                                                val current = libraryFraction.coerceIn(minFraction, maxFraction)
+                                                libraryFraction = (current + delta / availableWidthPx)
                                                     .coerceIn(minFraction, maxFraction)
                                             }
                                         },
@@ -328,11 +329,13 @@ fun LibraryTab() {
                                     .background(MaterialTheme.colorScheme.background),
                             ) {
                                 inspectedMangaId?.let { mangaId ->
-                                    SplitPaneMangaDetailsHost(
-                                        mangaId = mangaId,
-                                        onClose = { inspectedMangaId = null },
-                                        onExpandFullScreen = { navigator.push(MangaRoute(mangaId)) },
-                                    )
+                                    key(mangaId) {
+                                        SplitPaneMangaDetailsHost(
+                                            mangaId = mangaId,
+                                            onClose = { inspectedMangaId = null },
+                                            onExpandFullScreen = { navigator.push(MangaRoute(mangaId)) },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -416,7 +419,6 @@ private fun SplitPaneMangaDetailsHost(
     onClose: () -> Unit,
     onExpandFullScreen: () -> Unit,
 ) {
-    val style = LocalYomuStyle.current
     val paneOwner = remember(mangaId) {
         object : ViewModelStoreOwner {
             override val viewModelStore = ViewModelStore()
@@ -426,30 +428,14 @@ private fun SplitPaneMangaDetailsHost(
         onDispose { paneOwner.viewModelStore.clear() }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalViewModelStoreOwner provides paneOwner) {
-            MangaScreen(
-                mangaId = mangaId,
-                fromSource = false,
-                embeddedPane = true,
-                onClosePane = onClose,
-            )
-        }
-        Surface(
-            shape = YomuShapes.pill,
-            color = style.shelfPalette.cardSurface.copy(alpha = 0.92f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-        ) {
-            IconButton(onClick = onExpandFullScreen) {
-                Icon(
-                    imageVector = MaterialSymbols.AutoMirroredRounded.OpenInNew,
-                    contentDescription = stringResource(MR.strings.yomu_details_open_full),
-                    tint = style.shelfPalette.goldAccent,
-                )
-            }
-        }
+    CompositionLocalProvider(LocalViewModelStoreOwner provides paneOwner) {
+        MangaScreen(
+            mangaId = mangaId,
+            fromSource = false,
+            embeddedPane = true,
+            onClosePane = onClose,
+            onExpandPane = onExpandFullScreen,
+        )
     }
 }
 

@@ -74,6 +74,7 @@ import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorat
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
+import eu.kanade.domain.yomu.YomuContinueReadingResolver
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
@@ -88,6 +89,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.home.TabEvent
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
@@ -139,6 +141,8 @@ import soup.compose.material.motion.animation.materialSharedAxisX
 import soup.compose.material.motion.animation.rememberSlideDistance
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.history.interactor.GetNextChapters
+import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.i18n.MR
@@ -165,6 +169,10 @@ class MainActivity : BaseActivity() {
     @Inject private lateinit var downloadCache: DownloadCache
 
     @Inject private lateinit var chapterCache: ChapterCache
+
+    @Inject private lateinit var historyRepository: HistoryRepository
+
+    @Inject private lateinit var getNextChapters: GetNextChapters
 
     @Inject private lateinit var databaseRepository: DatabaseRepository
 
@@ -654,6 +662,21 @@ class MainActivity : BaseActivity() {
 
         val tabToOpen = when (intent.action) {
             Constants.SHORTCUT_LIBRARY -> TabEvent.Library()
+            Constants.SHORTCUT_RESUME_READING -> {
+                if (graph.securityPreferences.useAuthenticator.get()) return false
+                navigator.popToRoot()
+                lifecycleScope.launch {
+                    val history = historyRepository.getLastHistory() ?: return@launch
+                    val chapters = getNextChapters.await(history.mangaId, onlyUnread = false)
+                    val next = YomuContinueReadingResolver.nextUnreadAfterHistory(chapters, history.chapterId)
+                    if (next != null) {
+                        startActivity(ReaderActivity.newIntent(this@MainActivity, next.mangaId, next.id))
+                    } else {
+                        navigator.push(MangaRoute(history.mangaId))
+                    }
+                }
+                null
+            }
             Constants.SHORTCUT_MANGA -> {
                 val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
                 navigator.popToRoot()

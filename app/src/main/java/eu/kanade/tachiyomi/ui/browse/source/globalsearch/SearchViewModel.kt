@@ -112,7 +112,10 @@ abstract class SearchViewModel(
     }
 
     fun updateSearchQuery(query: String?) {
-        state.update { it.copy(searchQuery = query) }
+        if (state.value.searchQuery == query) return
+        searchJob?.cancel()
+        lastQuery = null
+        state.update { it.copy(searchQuery = query, items = emptyMap()) }
     }
 
     fun setSourceFilter(filter: SourceFilter) {

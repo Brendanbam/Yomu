@@ -1,10 +1,14 @@
 package eu.kanade.presentation.browse
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
@@ -16,11 +20,15 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 fun GlobalSearchScreen(
     state: SearchViewModel.State,
+    libraryMatches: List<Manga>,
+    onClickLibraryItem: (Manga) -> Unit,
     navigateUp: () -> Unit,
     onChangeSearchQuery: (String?) -> Unit,
     onSearch: (String) -> Unit,
@@ -51,6 +59,23 @@ fun GlobalSearchScreen(
     ) { paddingValues ->
         GlobalSearchContent(
             items = state.filteredItems,
+            libraryResults = if (state.searchQuery.isNullOrBlank()) {
+                null
+            } else {
+                {
+                    Text(
+                        text = stringResource(MR.strings.yomu_search_library_results),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    GlobalSearchCardRow(
+                        titles = libraryMatches,
+                        getManga = getManga,
+                        onClick = onClickLibraryItem,
+                        onLongClick = onClickLibraryItem,
+                    )
+                }
+            },
             contentPadding = paddingValues,
             getManga = getManga,
             onClickSource = onClickSource,
@@ -69,10 +94,12 @@ internal fun GlobalSearchContent(
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
     fromSourceId: Long? = null,
+    libraryResults: (@Composable () -> Unit)? = null,
 ) {
     LazyColumn(
         contentPadding = contentPadding,
     ) {
+        if (libraryResults != null) item(key = "library-results") { libraryResults() }
         items.forEach { (source, result) ->
             item(key = source.id) {
                 GlobalSearchResultItem(

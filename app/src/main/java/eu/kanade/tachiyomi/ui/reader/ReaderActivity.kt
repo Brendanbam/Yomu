@@ -65,6 +65,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
@@ -76,6 +77,7 @@ import eu.kanade.presentation.reader.ReadingModeSelectDialog
 import eu.kanade.presentation.reader.appbars.ReaderAppBars
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
+import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -260,7 +262,14 @@ class ReaderActivity : BaseActivity() {
 
                 ReaderNavigationOverlay(state = navigationOverlayState)
 
-                AppBars(state = state)
+                if (general.theme == ReaderPreferences.ReaderTheme.AMOLED) {
+                    TachiyomiTheme(
+                        appTheme = AppTheme.BLACK_EBONY,
+                        amoled = true,
+                    ) { AppBars(state = state) }
+                } else {
+                    AppBars(state = state)
+                }
             }
 
             if (state.isLoadingAdjacentChapter) {

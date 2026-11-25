@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -218,11 +219,11 @@ internal fun LibraryWoodenBookshelf(
                 }
             }
 
-            items(
-                items = rows.withIndex().toList(),
-                key = { (rowIdx, rowItems) -> "shelf_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-                contentType = { "yomu_bookshelf_row" },
-            ) { (rowIndex, rowItems) ->
+            itemsIndexed(
+                items = rows,
+                key = { _, books -> "shelf_${books.first().id}" },
+                contentType = { _, _ -> "yomu_bookshelf_row" },
+            ) { rowIndex, rowItems ->
                 YomuBookshelfTier(
                     rowIndex = rowIndex,
                     horizontalPadding = sidePad,
@@ -291,6 +292,7 @@ internal fun LibraryWoodenBookshelf(
 @Composable
 internal fun LibraryBookSpineShelf(
     items: List<LibraryItem>,
+    onClickContinueReading: ((LibraryManga) -> Unit)?,
     columns: Int,
     contentPadding: PaddingValues,
     selection: Set<Long>,
@@ -335,11 +337,11 @@ internal fun LibraryBookSpineShelf(
                 }
             }
 
-            items(
-                items = rows.withIndex().toList(),
-                key = { (rowIdx, rowItems) -> "spine_row_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-                contentType = { "yomu_spine_row" },
-            ) { (rowIndex, rowItems) ->
+            itemsIndexed(
+                items = rows,
+                key = { _, books -> "spine_row_${books.first().id}" },
+                contentType = { _, _ -> "yomu_spine_row" },
+            ) { rowIndex, rowItems ->
                 YomuBookshelfTier(
                     rowIndex = rowIndex,
                     horizontalPadding = 12.dp,
@@ -363,6 +365,8 @@ internal fun LibraryBookSpineShelf(
                                 YomuBookSpineVolume(
                                     mangaId = manga.id,
                                     title = manga.title,
+                                    onReadNext = onClickContinueReading?.takeIf { libManga.unreadCount > 0 }
+                                        ?.let { action -> { action(libManga) } },
                                     unreadCount = libraryItem.badges.unreadCount,
                                     downloadCount = libraryItem.badges.downloadCount,
                                     readProgress = progress,

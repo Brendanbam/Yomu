@@ -2,6 +2,10 @@ package eu.kanade.presentation.more.stats.data
 
 sealed interface StatsData {
 
+    data class ReadingGoal(val titlesRead: Int, val target: Int) : StatsData
+
+    data class Collection(val addedThisWeek: Int, val categories: List<Pair<String, Int>>) : StatsData
+
     data class Overview(
         val libraryMangaCount: Int,
         val completedMangaCount: Int,

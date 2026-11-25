@@ -19,6 +19,7 @@ fun StatsScreen() {
 
     val viewModel = metroViewModel<StatsViewModel>()
     val state by viewModel.state.collectAsState()
+    val goal by viewModel.goal.collectAsState()
 
     Scaffold(
         topBar = { scrollBehavior ->
@@ -37,6 +38,8 @@ fun StatsScreen() {
         StatsScreenContent(
             state = state as StatsScreenState.Success,
             paddingValues = paddingValues,
+            goal = goal,
+            onGoalChanged = viewModel::setReadingGoal,
         )
     }
 }

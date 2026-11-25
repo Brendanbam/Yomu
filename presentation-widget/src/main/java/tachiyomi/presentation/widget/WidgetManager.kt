@@ -6,6 +6,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,12 +23,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.updates.interactor.GetUpdates
 
 @Inject
 class WidgetManager(
     private val getUpdates: GetUpdates,
     private val securityPreferences: SecurityPreferences,
+    private val getHistory: GetHistory,
 ) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -35,13 +38,41 @@ class WidgetManager(
     fun init(scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             val manager = GlanceAppWidgetManager(context)
-            val placed = widgets.filter { manager.getGlanceIds(it.javaClass).isNotEmpty() }
+            val placed = (widgets + ReadingGlanceWidget()).filter { manager.getGlanceIds(it.javaClass).isNotEmpty() }
             placedWidgets.update { it + placed.map { widget -> widget.javaClass } }
         }
 
+        placedWidgets
+            .map { ReadingGlanceWidget::class.java in it }
+            .distinctUntilChanged()
+            .flatMapLatest { placed ->
+                if (placed) {
+                    combine(getHistory.subscribe(""), securityPreferences.useAuthenticator.changes()) {
+                            history,
+                            locked,
+                        ->
+                        history.firstOrNull()?.title to locked
+                    }
+                } else {
+                    emptyFlow()
+                }
+            }
+            .distinctUntilChanged()
+            .onEach {
+                try {
+                    ReadingGlanceWidget().updateAll(context)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    this.logcat(LogPriority.ERROR, e) { "Failed to update the reading widget" }
+                }
+            }
+            .flowOn(Dispatchers.Default)
+            .launchIn(scope)
+
         // Only watch updates while a widget is on the home screen
         placedWidgets
-            .map { it.isNotEmpty() }
+            .map { placed -> widgets.any { it.javaClass in placed } }
             .distinctUntilChanged()
             .flatMapLatest { hasWidgets ->
                 if (hasWidgets) {

@@ -70,6 +70,7 @@ fun MangaScreen(
     fromSource: Boolean,
     embeddedPane: Boolean = false,
     onClosePane: (() -> Unit)? = null,
+    onExpandPane: (() -> Unit)? = null,
 ) {
     val navigator = LocalNavigator.current
     val resultEventBus = LocalResultEventBus.current
@@ -109,6 +110,7 @@ fun MangaScreen(
         snackbarHostState = viewModel.snackbarHostState,
         nextUpdate = successState.manga.expectedNextUpdate,
         isTabletUi = isTabletUi,
+        onExpandPane = onExpandPane,
         chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
         chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
         navigateUp = {

@@ -44,7 +44,7 @@ data class SmartShelfEntry(
         get() = (totalChapters - readCount).coerceAtLeast(0L)
 
     val hasStarted: Boolean
-        get() = readCount > 0L
+        get() = readCount > 0L || lastRead != null
 
     val isPublicationCompleted: Boolean
         get() = publicationStatus == SManga.COMPLETED ||

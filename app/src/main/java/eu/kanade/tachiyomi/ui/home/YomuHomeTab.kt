@@ -34,6 +34,7 @@ fun YomuHomeTab() {
     YomuHomeScreen(
         state = state,
         onClickSettings = { navigator.openSettings(twoPane = isTablet) },
+        onClickRandom = { viewModel.pickRandomManga()?.let { navigator.push(MangaRoute(it)) } },
         onClickManga = { navigator.push(MangaRoute(it)) },
         onClickResume = { mangaId, targetChapterId ->
             context.startActivity(ReaderActivity.newIntent(context, mangaId, targetChapterId))

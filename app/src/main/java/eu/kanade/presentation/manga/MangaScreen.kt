@@ -90,6 +90,7 @@ fun MangaScreen(
     snackbarHostState: SnackbarHostState,
     nextUpdate: Instant?,
     isTabletUi: Boolean,
+    onExpandPane: (() -> Unit)? = null,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     navigateUp: () -> Unit,
@@ -143,6 +144,7 @@ fun MangaScreen(
 
     if (!isTabletUi) {
         MangaScreenSmallImpl(
+            onExpandPane = onExpandPane,
             state = state,
             snackbarHostState = snackbarHostState,
             nextUpdate = nextUpdate,
@@ -220,6 +222,7 @@ fun MangaScreen(
 
 @Composable
 private fun MangaScreenSmallImpl(
+    onExpandPane: (() -> Unit)?,
     state: MangaViewModel.State.Success,
     snackbarHostState: SnackbarHostState,
     nextUpdate: Instant?,
@@ -301,6 +304,7 @@ private fun MangaScreenSmallImpl(
                 label = "Top Bar Background",
             )
             MangaToolbar(
+                onExpandPane = onExpandPane,
                 title = state.manga.title,
                 hasFilters = state.filterActive,
                 navigateUp = navigateUp,

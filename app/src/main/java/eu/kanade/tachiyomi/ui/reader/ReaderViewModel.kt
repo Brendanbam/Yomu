@@ -36,7 +36,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
-import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import eu.kanade.tachiyomi.ui.reader.loader.HttpPageLoader
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -46,6 +45,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
+import eu.kanade.tachiyomi.util.chapter.nextUnreadForDownload
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
@@ -295,7 +295,7 @@ class ReaderViewModel(
     }
 
     private var incognitoMode: Boolean = false
-    private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
+    private var downloadAheadChapterId: Long? = null
 
     init {
         // To save state
@@ -547,39 +547,29 @@ class ReaderViewModel(
             loadNewChapter(selectedChapter)
         }
 
-        val inDownloadRange = page.number.toDouble() / pages.size > 0.25
+        val inDownloadRange = (page.index + 1).toDouble() / pages.size >= 0.25
         if (inDownloadRange) {
-            downloadNextChapters()
+            downloadNextChapters(selectedChapter.chapter)
         }
 
         eventChannel.trySend(Event.PageChanged)
     }
 
-    private fun downloadNextChapters() {
-        if (downloadAheadAmount == 0) return
+    private fun downloadNextChapters(current: Chapter) {
+        val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
+        if (downloadAheadAmount <= 0 || incognitoMode) return
         val manga = manga ?: return
 
-        // Only download ahead if current + next chapter is already downloaded too to avoid jank
-        if (getCurrentChapter()?.pageLoader !is DownloadPageLoader) return
-        val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
+        if (!manga.favorite || manga.isLocal() || downloadAheadChapterId == current.id) return
+        downloadAheadChapterId = current.id
 
         viewModelScope.launch(Dispatchers.IO) {
-            val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
-                nextChapter.name,
-                nextChapter.scanlator,
-                nextChapter.url,
-                manga.title,
-                manga.source,
+            val chapters = getNextChapters.await(manga.id, onlyUnread = false)
+            val chaptersToDownload = chapters.nextUnreadForDownload(
+                current = current,
+                count = downloadAheadAmount,
+                skipDuplicates = readerPreferences.skipDupe.get(),
             )
-            if (!isNextChapterDownloaded) return@launch
-
-            val chaptersToDownload = getNextChapters.await(manga.id, nextChapter.id).run {
-                if (readerPreferences.skipDupe.get()) {
-                    removeDuplicates(nextChapter)
-                } else {
-                    this
-                }
-            }.take(downloadAheadAmount)
 
             downloadManager.downloadChapters(
                 manga,

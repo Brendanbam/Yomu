@@ -296,6 +296,7 @@ class ReaderPreferences(
         BLACK(1),
         GRAY(2),
         AUTOMATIC(3),
+        AMOLED(4),
         ;
 
         companion object {

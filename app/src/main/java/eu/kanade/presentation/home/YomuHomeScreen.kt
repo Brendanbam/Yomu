@@ -91,6 +91,7 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Error
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.QueryStats
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Schedule
@@ -117,6 +118,7 @@ fun YomuHomeScreen(
     onClickDownloads: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
+    onClickRandom: () -> Unit,
     onClickRestoreBackup: () -> Unit,
     onClickSource: (Long) -> Unit,
     onRetry: () -> Unit,
@@ -404,6 +406,14 @@ fun YomuHomeScreen(
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 onClick = onClickStats,
                                                 modifier = Modifier.weight(1f),
+                                            )
+                                        }
+
+                                        if (state.heroMangaId != null) {
+                                            YomuShortcutBar(
+                                                title = stringResource(MR.strings.yomu_surprise_me),
+                                                icon = MaterialSymbols.Rounded.LocalLibrary,
+                                                onClick = onClickRandom,
                                             )
                                         }
 

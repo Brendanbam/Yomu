@@ -24,6 +24,7 @@ private val themes = listOf(
     MR.strings.gray_background to 2,
     MR.strings.white_background to 0,
     MR.strings.automatic_background to 3,
+    MR.strings.yomu_amoled_reading_room to 4,
 )
 
 private val flashColors = listOf(

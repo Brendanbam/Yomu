@@ -10,16 +10,25 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.core.util.fastCountNot
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -30,6 +39,9 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 
 @Inject
 @ViewModelKey
@@ -41,10 +53,31 @@ class StatsViewModel(
     private val getTracksPerManga: GetTracksPerManga,
     private val preferences: LibraryPreferences,
     private val trackerManager: TrackerManager,
+    private val getCategories: GetCategories,
+    getHistory: GetHistory,
+    private val uiPreferences: UiPreferences,
 ) : ViewModel() {
 
     val state: StateFlow<StatsScreenState>
         field = MutableStateFlow<StatsScreenState>(StatsScreenState.Loading)
+
+    val goal = combine(
+        getHistory.subscribe(""),
+        uiPreferences.yomuWeeklyReadingGoal.changes(),
+        flow {
+            while (true) {
+                emit(Clock.System.now())
+                delay(1.minutes)
+            }
+        },
+    ) { history, target, now ->
+        val start = now - 7.days
+        val titles = history.filter { it.readAt?.let { date -> date in start..now } == true }
+            .distinctBy { it.mangaId }.size
+        StatsData.ReadingGoal(titlesRead = titles, target = target.coerceIn(0, 30))
+    }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setReadingGoal(target: Int) = uiPreferences.yomuWeeklyReadingGoal.set(target.coerceIn(0, 30))
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
 
@@ -85,12 +118,24 @@ class StatsViewModel(
                 trackerCount = loggedInTrackers.size,
             )
 
+            val addedSince = Clock.System.now() - 7.days
+            val categoryCounts = distinctLibraryManga.flatMap { it.categories }.groupingBy { it }.eachCount()
+            val collection = StatsData.Collection(
+                addedThisWeek = distinctLibraryManga.count {
+                    it.manga.favoriteAt?.let { date -> date >= addedSince } ==
+                        true
+                },
+                categories = getCategories.await().filterNot { it.isSystemCategory }.map { category ->
+                    category.name to (categoryCounts[category.id] ?: 0)
+                },
+            )
             state.update {
                 StatsScreenState.Success(
                     overview = overviewStatData,
                     titles = titlesStatData,
                     chapters = chaptersStatData,
                     trackers = trackersStatData,
+                    collection = collection,
                 )
             }
         }

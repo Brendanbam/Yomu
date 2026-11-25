@@ -11,6 +11,7 @@ import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.domain.ui.model.YomuAccentColor
 import eu.kanade.domain.ui.model.YomuHomeSection
 import eu.kanade.domain.ui.model.YomuShelfMaterial
+import eu.kanade.domain.ui.model.YomuShelfPreset
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isDynamicColorAvailable
 import logcat.LogPriority
@@ -26,7 +27,7 @@ import java.util.Locale
 @Inject
 @SingleIn(AppScope::class)
 class UiPreferences(
-    preferenceStore: PreferenceStore,
+    private val preferenceStore: PreferenceStore,
 ) {
 
     val themeMode: Preference<ThemeMode> = preferenceStore.getEnum("pref_theme_mode_key", ThemeMode.DARK)
@@ -49,6 +50,19 @@ class UiPreferences(
         "yomu_shelf_material",
         YomuShelfMaterial.AUTO,
     )
+
+    fun categoryShelfMaterial(categoryId: Long): Preference<YomuShelfMaterial> =
+        preferenceStore.getEnum("yomu_category_shelf_material_$categoryId", YomuShelfMaterial.AUTO)
+
+    val yomuWeeklyReadingGoal: Preference<Int> = preferenceStore.getInt("yomu_weekly_reading_goal", 0)
+
+    fun applyShelfPreset(preset: YomuShelfPreset) {
+        yomuShelfMaterial.set(preset.material)
+        yomuLightingIntensity.set(preset.lighting)
+        yomuBookThickness.set(preset.thickness)
+        yomuShadowIntensity.set(preset.shadow)
+        yomuDecorationIntensity.set(preset.texture)
+    }
 
     val yomuLightingIntensity: Preference<Int> = preferenceStore.getInt("yomu_lighting_intensity", 75)
 

@@ -3,9 +3,14 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import mihon.app.di.appGraph
+import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * [content] in the app's theme under the reader's own night mode, from [readerThemedContext].
@@ -20,6 +25,12 @@ fun ReaderThemedContent(readerThemedContext: Context, content: @Composable () ->
         LocalContext provides readerThemedContext,
         LocalConfiguration provides readerThemedContext.resources.configuration,
     ) {
-        TachiyomiTheme(content = content)
+        val theme by readerThemedContext.appGraph.readerPreferences.readerTheme.collectAsState()
+        val amoled = ReaderPreferences.ReaderTheme.fromValue(theme) == ReaderPreferences.ReaderTheme.AMOLED
+        TachiyomiTheme(
+            appTheme = AppTheme.BLACK_EBONY.takeIf { amoled },
+            amoled = true.takeIf { amoled },
+            content = content,
+        )
     }
 }

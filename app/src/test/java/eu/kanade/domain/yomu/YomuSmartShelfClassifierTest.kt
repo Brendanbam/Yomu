@@ -41,6 +41,13 @@ class YomuSmartShelfClassifierTest {
     )
 
     @Test
+    fun `reading the first chapter counts as currently reading`() {
+        val started = entry(lastRead = fixedNow)
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.CURRENTLY_READING, started, fixedNow).shouldBeTrue()
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.CURRENTLY_READING, entry(), fixedNow).shouldBeFalse()
+    }
+
+    @Test
     fun `separates completed publication, caught up, and finished reading accurately`() {
         val ongoingCaughtUp = entry(
             id = 1L,

@@ -30,6 +30,8 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -846,6 +848,7 @@ fun YomuPhysicalMangaVolume(
 @Composable
 fun YomuBookSpineVolume(
     mangaId: Long,
+    onReadNext: (() -> Unit)?,
     title: String,
     unreadCount: Long,
     downloadCount: Int,
@@ -891,7 +894,7 @@ fun YomuBookSpineVolume(
     }
     val hash = (mangaId * 31 + title.hashCode()).toInt().ushr(1)
     val spineBase = spineColors[hash % spineColors.size]
-    val heightDp = (154 + (hash % 24)).dp
+    val heightDp = (168 + (hash % 24)).dp
     val shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp)
     val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, unreadCount)
     val downloadLabel = stringResource(MR.strings.yomu_downloaded_count, downloadCount)
@@ -976,13 +979,14 @@ fun YomuBookSpineVolume(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 34.dp, bottom = 22.dp, start = 2.dp, end = 2.dp),
+                .padding(top = 34.dp, bottom = if (onReadNext == null) 22.dp else 53.dp, start = 2.dp, end = 2.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = title,
                 color = YomuColors.WarmIvory,
-                fontSize = 11.sp,
+                fontFamily = YomuSerifFontFamily,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1008,6 +1012,21 @@ fun YomuBookSpineVolume(
             )
         }
 
+        if (onReadNext != null) {
+            IconButton(
+                onClick = onReadNext,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+                    .size(40.dp).yomuFocusHighlight(CircleShape),
+            ) {
+                Icon(
+                    imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
+                    contentDescription = stringResource(MR.strings.yomu_read_next_title, title),
+                    tint = YomuColors.WarmIvory,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1023,12 +1042,13 @@ fun YomuBookSpineVolume(
                         .background(palette.sageAccent),
                 )
             }
-            if (readProgress != null && readProgress > 0f) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(primaryColor),
+            if (style.showShelfProgress && readProgress != null && readProgress > 0f) {
+                LinearProgressIndicator(
+                    progress = { readProgress },
+                    modifier = Modifier.width(21.dp).height(4.dp),
+                    color = primaryColor,
+                    trackColor = Color.White.copy(alpha = 0.23f),
+                    drawStopIndicator = {},
                 )
             }
         }

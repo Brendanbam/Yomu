@@ -158,11 +158,9 @@ class YomuHomeViewModel(
         }
         val continueReading = YomuContinueReadingResolver.selectBest(continueCandidates)
 
-        val featuredLib = libraryList
-            .sortedByDescending {
-                it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
-            }
-            .firstOrNull()
+        val featuredLib = libraryList.maxByOrNull {
+            it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
+        }
 
         val heroCover = continueReading?.coverData
             ?: featuredLib?.let { lib ->
@@ -202,8 +200,8 @@ class YomuHomeViewModel(
                 )
             }
 
-        val currentlyReading = libraryList
-            .filter { it.hasStarted && it.unreadCount > 0L }
+        val inProgress = libraryList.filter { (it.hasStarted || it.lastRead != null) && it.unreadCount > 0L }
+        val currentlyReading = inProgress
             .sortedByDescending { it.lastRead?.toEpochMilliseconds() ?: 0L }
             .take(9)
             .map { toShelfBook(it, downloadCountsByMangaId) }
@@ -229,7 +227,7 @@ class YomuHomeViewModel(
 
         val readingStats = ReadingStats(
             libraryCount = libraryList.size,
-            currentlyReadingCount = libraryList.count { it.hasStarted && it.unreadCount > 0L },
+            currentlyReadingCount = inProgress.size,
             completedSeriesCount = libraryList.count {
                 it.totalChapters > 0L && it.unreadCount == 0L &&
                     (
@@ -353,6 +351,17 @@ class YomuHomeViewModel(
             hasBookmarks = lib.hasBookmarks,
         )
     }
+
+    fun pickRandomManga(): Long? {
+        val home = state.value
+        val candidates = home.rediscover.ifEmpty { home.currentlyReading }.ifEmpty { home.offlineCollection }
+        val picked = candidates.filterNot { it.mangaId == previousRandomManga }.ifEmpty { candidates }.randomOrNull()
+        val id = picked?.mangaId ?: home.heroMangaId
+        previousRandomManga = id
+        return id
+    }
+
+    private var previousRandomManga: Long? = null
 
     fun retry() {
         retryTrigger.update { it + 1 }

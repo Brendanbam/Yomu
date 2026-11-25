@@ -70,6 +70,7 @@ fun LibrarySettingsDialog(
                 )
                 2 -> DisplayPage(
                     viewModel = viewModel,
+                    category = category,
                 )
             }
         }
@@ -234,6 +235,7 @@ private val displayModes = listOf(
 @Composable
 private fun ColumnScope.DisplayPage(
     viewModel: LibrarySettingsViewModel,
+    category: Category?,
 ) {
     val context = LocalContext.current
     val uiPreferences = remember { context.appGraph.uiPreferences }
@@ -283,6 +285,29 @@ private fun ColumnScope.DisplayPage(
                 onClick = { uiPreferences.yomuShelfMaterial.set(material) },
                 label = { Text(stringResource(material.titleRes)) },
             )
+        }
+    }
+    if (category != null) {
+        val categoryMaterial = remember(category.id) { uiPreferences.categoryShelfMaterial(category.id) }
+        val selectedMaterial by categoryMaterial.collectAsState()
+        SettingsChipRow(MR.strings.yomu_category_shelf_design) {
+            YomuShelfMaterial.entries.forEach { material ->
+                FilterChip(
+                    selected = selectedMaterial == material,
+                    onClick = { categoryMaterial.set(material) },
+                    label = {
+                        Text(
+                            stringResource(
+                                if (material == YomuShelfMaterial.AUTO) {
+                                    MR.strings.yomu_inherit_shelf_design
+                                } else {
+                                    material.titleRes
+                                },
+                            ),
+                        )
+                    },
+                )
+            }
         }
     }
     val lighting by uiPreferences.yomuLightingIntensity.collectAsState()

@@ -11,6 +11,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -20,16 +21,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.domain.ui.model.YomuShelfMaterial
 import eu.kanade.domain.yomu.YomuSmartShelf
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
+import eu.kanade.presentation.theme.yomu.resolveShelfPalette
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import mihon.app.di.appGraph
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.plus
 
 @Composable
@@ -50,6 +56,7 @@ fun LibraryPager(
     inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
+    val uiPreferences = LocalContext.current.appGraph.uiPreferences
 
     HorizontalPager(
         modifier = Modifier.fillMaxSize(),
@@ -119,100 +126,112 @@ fun LibraryPager(
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             } else {
-                when (displayMode) {
-                    LibraryDisplayMode.ClassicBookshelf -> {
-                        LibraryWoodenBookshelf(
-                            items = items,
-                            columns = columns,
-                            collectorEdition = false,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            onClickContinueReading = onClickContinueReading,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                            inspectedMangaId = inspectedMangaId,
-                        )
-                    }
-                    LibraryDisplayMode.CollectorEdition -> {
-                        LibraryWoodenBookshelf(
-                            items = items,
-                            columns = columns,
-                            collectorEdition = true,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            onClickContinueReading = onClickContinueReading,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                            inspectedMangaId = inspectedMangaId,
-                        )
-                    }
-                    LibraryDisplayMode.BookSpine -> {
-                        LibraryBookSpineShelf(
-                            items = items,
-                            columns = columns,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                            inspectedMangaId = inspectedMangaId,
-                        )
-                    }
-                    LibraryDisplayMode.Minimal -> {
-                        LibraryMinimalGrid(
-                            items = items,
-                            columns = columns,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                        )
-                    }
-                    LibraryDisplayMode.List -> {
-                        LibraryList(
-                            items = items,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            onClickContinueReading = onClickContinueReading,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                        )
-                    }
-                    LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
-                        LibraryCompactGrid(
-                            items = items,
-                            showTitle = displayMode is LibraryDisplayMode.CompactGrid,
-                            columns = columns,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            onClickContinueReading = onClickContinueReading,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                        )
-                    }
-                    LibraryDisplayMode.ComfortableGrid -> {
-                        LibraryComfortableGrid(
-                            items = items,
-                            columns = columns,
-                            contentPadding = contentPadding,
-                            selection = selection,
-                            onClick = onClickMangaAction,
-                            onLongClick = onLongClickMangaAction,
-                            onClickContinueReading = onClickContinueReading,
-                            searchQuery = searchQuery,
-                            onGlobalSearchClicked = onGlobalSearchClicked,
-                        )
+                val categoryPreference = remember(category.id) { uiPreferences.categoryShelfMaterial(category.id) }
+                val material by categoryPreference.collectAsState()
+                val categoryStyle = if (material == YomuShelfMaterial.AUTO) {
+                    style
+                } else {
+                    style.copy(
+                        shelfPalette = resolveShelfPalette(style.appTheme, material, !style.shelfPalette.isLight),
+                    )
+                }
+                CompositionLocalProvider(LocalYomuStyle provides categoryStyle) {
+                    when (displayMode) {
+                        LibraryDisplayMode.ClassicBookshelf -> {
+                            LibraryWoodenBookshelf(
+                                items = items,
+                                columns = columns,
+                                collectorEdition = false,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                                inspectedMangaId = inspectedMangaId,
+                            )
+                        }
+                        LibraryDisplayMode.CollectorEdition -> {
+                            LibraryWoodenBookshelf(
+                                items = items,
+                                columns = columns,
+                                collectorEdition = true,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                                inspectedMangaId = inspectedMangaId,
+                            )
+                        }
+                        LibraryDisplayMode.BookSpine -> {
+                            LibraryBookSpineShelf(
+                                items = items,
+                                columns = columns,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                                inspectedMangaId = inspectedMangaId,
+                            )
+                        }
+                        LibraryDisplayMode.Minimal -> {
+                            LibraryMinimalGrid(
+                                items = items,
+                                columns = columns,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                            )
+                        }
+                        LibraryDisplayMode.List -> {
+                            LibraryList(
+                                items = items,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                            )
+                        }
+                        LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
+                            LibraryCompactGrid(
+                                items = items,
+                                showTitle = displayMode is LibraryDisplayMode.CompactGrid,
+                                columns = columns,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                            )
+                        }
+                        LibraryDisplayMode.ComfortableGrid -> {
+                            LibraryComfortableGrid(
+                                items = items,
+                                columns = columns,
+                                contentPadding = contentPadding,
+                                selection = selection,
+                                onClick = onClickMangaAction,
+                                onLongClick = onLongClickMangaAction,
+                                onClickContinueReading = onClickContinueReading,
+                                searchQuery = searchQuery,
+                                onGlobalSearchClicked = onGlobalSearchClicked,
+                            )
+                        }
                     }
                 }
             }
