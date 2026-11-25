@@ -14,8 +14,8 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 class YomuHomePreferencesTest {
 
     @Test
-    fun `default order parses all Home sections in canonical order`() {
-        YomuHomeSection.parseOrder(YomuHomeSection.defaultOrder) shouldBe YomuHomeSection.entries
+    fun `default order parses canonical calm Home sections`() {
+        YomuHomeSection.parseOrder(YomuHomeSection.defaultOrder) shouldBe YomuHomeSection.defaultSections
     }
 
     @Test
@@ -37,9 +37,9 @@ class YomuHomePreferencesTest {
 
     @Test
     fun `blank or invalid serialized values safely fall back to defaults`() {
-        YomuHomeSection.parseOrder("") shouldBe YomuHomeSection.entries
-        YomuHomeSection.parseOrder("   ") shouldBe YomuHomeSection.entries
-        YomuHomeSection.parseOrder("bogus,invalid") shouldBe YomuHomeSection.entries
+        YomuHomeSection.parseOrder("") shouldBe YomuHomeSection.defaultSections
+        YomuHomeSection.parseOrder("   ") shouldBe YomuHomeSection.defaultSections
+        YomuHomeSection.parseOrder("bogus,invalid") shouldBe YomuHomeSection.defaultSections
     }
 
     @Test

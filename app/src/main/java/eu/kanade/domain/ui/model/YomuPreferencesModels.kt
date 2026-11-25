@@ -47,7 +47,9 @@ enum class YomuHomeSection(val id: String, val titleRes: StringResource) {
     companion object {
         const val EMPTY_SENTINEL: String = "NONE"
 
-        val defaultOrder: String = entries.joinToString(",") { it.id }
+        val defaultSections: List<YomuHomeSection> = entries.filterNot { it == READING_STATS }
+
+        val defaultOrder: String = defaultSections.joinToString(",") { it.id }
 
         fun serializeOrder(sections: List<YomuHomeSection>): String {
             if (sections.isEmpty()) return EMPTY_SENTINEL
@@ -60,14 +62,14 @@ enum class YomuHomeSection(val id: String, val titleRes: StringResource) {
                 return emptyList()
             }
             if (trimmed.isEmpty()) {
-                return entries
+                return defaultSections
             }
             val map = entries.associateBy { it.id }
             val parsed = trimmed
                 .split(",")
                 .mapNotNull { map[it.trim()] }
                 .distinct()
-            return parsed.ifEmpty { entries }
+            return parsed.ifEmpty { defaultSections }
         }
     }
 }

@@ -197,10 +197,10 @@ fun YomuHomeScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                        top = contentPadding.calculateTopPadding() + 4.dp,
-                        bottom = contentPadding.calculateBottomPadding() + 24.dp,
+                        top = contentPadding.calculateTopPadding() + 8.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 32.dp,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(22.dp),
                 ) {
                     if (state.hasLibraryError) {
                         item(key = "yomu_home_library_error") {
@@ -370,96 +370,74 @@ fun YomuHomeScreen(
                             YomuHomeSection.QUICK_ACCESS -> {
                                 item(key = "yomu_home_quick_access") {
                                     Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = YomuSpacing.lg),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
                                     ) {
                                         YomuShortcutBar(
                                             title = stringResource(MR.strings.history),
                                             icon = MaterialSymbols.Rounded.Schedule,
                                             onClick = onClickHistory,
+                                            modifier = Modifier.padding(horizontal = YomuSpacing.lg),
                                         )
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        ) {
-                                            QuickAccessTile(
-                                                title = stringResource(MR.strings.label_download_queue),
-                                                icon = MaterialSymbols.Rounded.Download,
-                                                badge = state.activeDownloadsCount.takeIf { it > 0 }?.toString(),
-                                                tint = style.shelfPalette.sageAccent,
-                                                onClick = onClickDownloads,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            QuickAccessTile(
-                                                title = stringResource(MR.strings.yomu_shelf_manager),
-                                                icon = MaterialSymbols.AutoMirroredRounded.Label,
-                                                tint = style.shelfPalette.goldAccent,
-                                                onClick = onClickCategories,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            QuickAccessTile(
-                                                title = stringResource(MR.strings.label_stats),
-                                                icon = MaterialSymbols.Rounded.QueryStats,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                onClick = onClickStats,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                        }
-
-                                        if (state.heroMangaId != null) {
-                                            YomuShortcutBar(
-                                                title = stringResource(MR.strings.yomu_surprise_me),
-                                                icon = MaterialSymbols.Rounded.LocalLibrary,
-                                                onClick = onClickRandom,
-                                            )
-                                        }
 
                                         if (state.hasSourcesError) {
                                             InlineSectionErrorBanner(
                                                 sectionName = stringResource(MR.strings.label_sources),
                                                 onRetry = onRetry,
                                             )
-                                        } else if (state.pinnedSources.isNotEmpty()) {
-                                            LazyRow(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                modifier = Modifier.padding(top = 4.dp),
-                                            ) {
+                                        }
+
+                                        // Single quiet horizontal strip for secondary shortcuts & pinned sources
+                                        LazyRow(
+                                            contentPadding = PaddingValues(horizontal = YomuSpacing.lg),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            item(key = "home_pill_downloads") {
+                                                HomeQuickPill(
+                                                    label = stringResource(MR.strings.label_download_queue),
+                                                    icon = MaterialSymbols.Rounded.Download,
+                                                    tint = style.shelfPalette.sageAccent,
+                                                    badge = state.activeDownloadsCount.takeIf { it > 0 }?.toString(),
+                                                    onClick = onClickDownloads,
+                                                )
+                                            }
+                                            item(key = "home_pill_shelves") {
+                                                HomeQuickPill(
+                                                    label = stringResource(MR.strings.yomu_shelf_manager),
+                                                    icon = MaterialSymbols.AutoMirroredRounded.Label,
+                                                    tint = style.shelfPalette.goldAccent,
+                                                    onClick = onClickCategories,
+                                                )
+                                            }
+                                            item(key = "home_pill_stats") {
+                                                HomeQuickPill(
+                                                    label = stringResource(MR.strings.label_stats),
+                                                    icon = MaterialSymbols.Rounded.QueryStats,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    onClick = onClickStats,
+                                                )
+                                            }
+                                            if (state.heroMangaId != null) {
+                                                item(key = "home_pill_random") {
+                                                    HomeQuickPill(
+                                                        label = stringResource(MR.strings.yomu_surprise_me),
+                                                        icon = MaterialSymbols.Rounded.LocalLibrary,
+                                                        tint = style.shelfPalette.goldAccent,
+                                                        onClick = onClickRandom,
+                                                    )
+                                                }
+                                            }
+                                            if (!state.hasSourcesError) {
                                                 items(
                                                     items = state.pinnedSources,
                                                     key = { "home_src_${it.id}" },
                                                 ) { source ->
-                                                    Surface(
+                                                    HomeQuickPill(
+                                                        label = source.name,
+                                                        icon = MaterialSymbols.Rounded.Explore,
+                                                        tint = style.shelfPalette.goldAccent,
                                                         onClick = { onClickSource(source.id) },
-                                                        shape = YomuShapes.pill,
-                                                        color = style.shelfPalette.cardSurface,
-                                                        border = BorderStroke(1.dp, style.shelfPalette.subtleBorder),
-                                                        modifier = Modifier.yomuFocusHighlight(YomuShapes.pill),
-                                                    ) {
-                                                        Row(
-                                                            modifier = Modifier.padding(
-                                                                horizontal = 14.dp,
-                                                                vertical = 8.dp,
-                                                            ),
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = MaterialSymbols.Rounded.Explore,
-                                                                contentDescription = null,
-                                                                tint = style.shelfPalette.goldAccent,
-                                                                modifier = Modifier.size(15.dp),
-                                                            )
-                                                            Text(
-                                                                text = source.name,
-                                                                style = MaterialTheme.typography.labelLarge,
-                                                                color = MaterialTheme.colorScheme.onSurface,
-                                                                maxLines = 1,
-                                                            )
-                                                        }
-                                                    }
+                                                    )
                                                 }
                                             }
                                         }
@@ -825,89 +803,146 @@ private fun YomuReadingStatsSection(
             actionLabel = stringResource(MR.strings.yomu_home_view_all),
             onActionClick = onClickStats,
         )
-        Row(
+        YomuSurfaceCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = YomuSpacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            shape = YomuShapes.card,
         ) {
-            StatMetricCard(
-                value = stats.libraryCount.toString(),
-                label = stringResource(MR.strings.yomu_home_stat_volumes),
-                icon = MaterialSymbols.Rounded.CollectionsBookmark,
-                tint = style.shelfPalette.goldAccent,
-                onClick = onClickLibrary,
-                modifier = Modifier.weight(1f),
-            )
-            StatMetricCard(
-                value = stats.currentlyReadingCount.toString(),
-                label = stringResource(MR.strings.yomu_home_stat_reading),
-                icon = MaterialSymbols.Rounded.Book,
-                tint = MaterialTheme.colorScheme.primary,
-                onClick = onClickLibrary,
-                modifier = Modifier.weight(1f),
-            )
-            StatMetricCard(
-                value = stats.totalChaptersRead.toString(),
-                label = stringResource(MR.strings.yomu_home_stat_chapters_read),
-                icon = MaterialSymbols.Rounded.DoneAll,
-                tint = style.shelfPalette.goldAccent,
-                onClick = onClickStats,
-                modifier = Modifier.weight(1f),
-            )
-            StatMetricCard(
-                value = stats.offlineReadyCount.toString(),
-                label = stringResource(MR.strings.yomu_home_stat_offline),
-                icon = MaterialSymbols.Rounded.Download,
-                tint = style.shelfPalette.sageAccent,
-                onClick = onClickDownloads,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatMetricColumn(
+                    value = stats.libraryCount.toString(),
+                    label = stringResource(MR.strings.yomu_home_stat_volumes),
+                    tint = style.shelfPalette.goldAccent,
+                    onClick = onClickLibrary,
+                    modifier = Modifier.weight(1f),
+                )
+                StatMetricDivider()
+                StatMetricColumn(
+                    value = stats.currentlyReadingCount.toString(),
+                    label = stringResource(MR.strings.yomu_home_stat_reading),
+                    tint = MaterialTheme.colorScheme.primary,
+                    onClick = onClickLibrary,
+                    modifier = Modifier.weight(1f),
+                )
+                StatMetricDivider()
+                StatMetricColumn(
+                    value = stats.totalChaptersRead.toString(),
+                    label = stringResource(MR.strings.yomu_home_stat_chapters_read),
+                    tint = style.shelfPalette.goldAccent,
+                    onClick = onClickStats,
+                    modifier = Modifier.weight(1f),
+                )
+                StatMetricDivider()
+                StatMetricColumn(
+                    value = stats.offlineReadyCount.toString(),
+                    label = stringResource(MR.strings.yomu_home_stat_offline),
+                    tint = style.shelfPalette.sageAccent,
+                    onClick = onClickDownloads,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun StatMetricCard(
+private fun StatMetricDivider() {
+    val style = LocalYomuStyle.current
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(28.dp)
+            .background(style.shelfPalette.subtleBorder.copy(alpha = 0.65f)),
+    )
+}
+
+@Composable
+private fun StatMetricColumn(
     value: String,
     label: String,
-    icon: ImageVector,
     tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    YomuSurfaceCard(
-        modifier = modifier,
-        onClick = onClick,
-        shape = YomuShapes.card,
+    Column(
+        modifier = modifier
+            .clip(YomuShapes.chapterRow)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = tint,
+            maxLines = 1,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun HomeQuickPill(
+    label: String,
+    icon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    badge: String? = null,
+) {
+    val style = LocalYomuStyle.current
+    Surface(
+        onClick = onClick,
+        shape = YomuShapes.pill,
+        color = style.shelfPalette.cardSurface,
+        border = BorderStroke(1.dp, style.shelfPalette.subtleBorder),
+        modifier = Modifier.yomuFocusHighlight(YomuShapes.pill),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                modifier = Modifier.size(15.dp),
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
             )
+            if (!badge.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        text = badge,
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }
