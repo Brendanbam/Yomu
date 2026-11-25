@@ -188,34 +188,14 @@ fun AboutScreen() {
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     LinkIcon(
-                        label = stringResource(MR.strings.website),
+                        label = "Yomu GitHub",
+                        icon = SimpleIcons.Github,
+                        url = "https://github.com/Brendanbam/Yomu",
+                    )
+                    LinkIcon(
+                        label = "Mihon",
                         icon = MaterialSymbols.Rounded.Public,
                         url = "https://mihon.app",
-                    )
-                    LinkIcon(
-                        label = "Discord",
-                        icon = SimpleIcons.Discord,
-                        url = Constants.URL_DISCORD,
-                    )
-                    LinkIcon(
-                        label = "X",
-                        icon = SimpleIcons.X,
-                        url = "https://x.com/mihonapp",
-                    )
-                    LinkIcon(
-                        label = "Facebook",
-                        icon = SimpleIcons.Facebook,
-                        url = "https://facebook.com/mihonapp",
-                    )
-                    LinkIcon(
-                        label = "Reddit",
-                        icon = SimpleIcons.Reddit,
-                        url = "https://www.reddit.com/r/mihonapp",
-                    )
-                    LinkIcon(
-                        label = "GitHub",
-                        icon = SimpleIcons.Github,
-                        url = "https://github.com/mihonapp",
                     )
                 }
             }

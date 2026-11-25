@@ -1,13 +1,36 @@
 package eu.kanade.presentation.more.settings.screen
 
 import android.app.Activity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.TabletUiMode
@@ -16,9 +39,14 @@ import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.domain.ui.model.YomuAccentColor
 import eu.kanade.domain.ui.model.YomuShelfMaterial
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
+import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.presentation.theme.yomu.LocalYomuStyle
+import eu.kanade.presentation.theme.yomu.YomuBookshelfTier
+import eu.kanade.presentation.theme.yomu.YomuColors
+import eu.kanade.presentation.theme.yomu.YomuShapes
 import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
@@ -56,13 +84,24 @@ data object SettingsAppearanceScreen : SearchableSettings {
     private fun getYomuSanctuaryGroup(
         uiPreferences: UiPreferences,
     ): Preference.PreferenceGroup {
+        val context = LocalContext.current
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.yomu_pref_category_sanctuary),
             preferenceItems = listOf(
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(MR.strings.yomu_pref_preview_shelf),
+                ) {
+                    YomuLiveBookshelfPreview()
+                },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = uiPreferences.startOnLibrary,
                     title = stringResource(MR.strings.yomu_pref_start_on_library),
                     subtitle = stringResource(MR.strings.yomu_pref_start_on_library_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.yomuTabletSplitPane,
+                    title = stringResource(MR.strings.yomu_pref_tablet_split_pane),
+                    subtitle = stringResource(MR.strings.yomu_pref_tablet_split_pane_summary),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = uiPreferences.yomuAccentColor,
@@ -73,6 +112,36 @@ data object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.yomuShelfMaterial,
                     entries = YomuShelfMaterial.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.yomu_pref_shelf_material),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    preference = uiPreferences.yomuLightingIntensity,
+                    title = stringResource(MR.strings.yomu_pref_lighting_intensity),
+                    valueRange = 0..100 step 5,
+                    valueText = { "$it%" },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    preference = uiPreferences.yomuBookThickness,
+                    title = stringResource(MR.strings.yomu_pref_book_thickness),
+                    valueRange = 0..100 step 5,
+                    valueText = { "$it%" },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    preference = uiPreferences.yomuShadowIntensity,
+                    title = stringResource(MR.strings.yomu_pref_shadow_intensity),
+                    valueRange = 0..100 step 5,
+                    valueText = { "$it%" },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    preference = uiPreferences.yomuDecorationIntensity,
+                    title = stringResource(MR.strings.yomu_pref_decoration_intensity),
+                    valueRange = 0..100 step 5,
+                    valueText = { "$it%" },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    preference = uiPreferences.yomuAnimationIntensity,
+                    title = stringResource(MR.strings.yomu_pref_animation_intensity),
+                    valueRange = 0..100 step 5,
+                    valueText = { "$it%" },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = uiPreferences.yomuShowShelfTitles,
@@ -91,6 +160,15 @@ data object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.yomuReducedMotion,
                     title = stringResource(MR.strings.yomu_pref_reduced_motion),
                     subtitle = stringResource(MR.strings.yomu_pref_reduced_motion_summary),
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.yomu_pref_reset_defaults),
+                    subtitle = stringResource(MR.strings.yomu_pref_reset_defaults_summary),
+                    onClick = {
+                        uiPreferences.resetYomuDefaults()
+                        setAppCompatDelegateThemeMode(ThemeMode.DARK)
+                        context.toast(MR.strings.yomu_pref_reset_defaults)
+                    },
                 ),
             ),
         )
@@ -216,6 +294,117 @@ data object SettingsAppearanceScreen : SearchableSettings {
                 ),
             ),
         )
+    }
+}
+
+@Composable
+private fun YomuLiveBookshelfPreview() {
+    val style = LocalYomuStyle.current
+    val palette = style.shelfPalette
+    val primary = MaterialTheme.colorScheme.primary
+    val sampleCovers = remember {
+        listOf(
+            Triple("Lantern Chronicles", listOf(Color(0xFF42273A), Color(0xFF1E1320)), 0.72f to 4),
+            Triple("Midnight Tea House", listOf(Color(0xFF213A34), Color(0xFF10201C)), 0.35f to 12),
+            Triple("Walnut Garden", listOf(Color(0xFF4D3220), Color(0xFF21140C)), 1.0f to 0),
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(YomuShapes.card)
+            .border(1.dp, palette.subtleBorder, YomuShapes.card),
+    ) {
+        YomuBookshelfTier(
+            rowIndex = 0,
+            horizontalPadding = 16.dp,
+            topAlcovePadding = 14.dp,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                sampleCovers.forEach { (title, gradient, meta) ->
+                    val (progress, unread) = meta
+                    val thicknessDp = (4.5f * (0.4f + 0.6f * style.bookThickness)).dp
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(MangaCover.Book.ratio),
+                    ) {
+                        // Miniature parchment edge
+                        if (thicknessDp > 1.dp) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .padding(top = 2.dp, bottom = 1.dp)
+                                    .clip(YomuShapes.bookCover)
+                                    .background(palette.bookPageEdge),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(end = thicknessDp)
+                                .clip(YomuShapes.bookCover)
+                                .background(Brush.verticalGradient(gradient))
+                                .border(0.8.dp, palette.goldAccent.copy(alpha = 0.35f), YomuShapes.bookCover),
+                        ) {
+                            if (style.showShelfTitles) {
+                                Text(
+                                    text = title,
+                                    color = YomuColors.WarmIvory,
+                                    fontSize = 10.sp,
+                                    lineHeight = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(start = 6.dp, end = 6.dp, bottom = 7.dp),
+                                )
+                            }
+                            if (style.showShelfProgress && progress > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .background(Color.Black.copy(alpha = 0.55f)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth(progress)
+                                            .background(primary),
+                                    )
+                                }
+                            }
+                        }
+                        if (unread > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 3.dp, end = 3.dp)
+                                    .clip(CircleShape)
+                                    .background(primary)
+                                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                            ) {
+                                Text(
+                                    text = unread.toString(),
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

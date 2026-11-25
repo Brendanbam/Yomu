@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import eu.kanade.presentation.components.DownloadDropdownMenu
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.presentation.theme.yomu.YomuColors
@@ -193,7 +194,11 @@ fun YomuMangaHeroHeader(
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
                             lineHeight = 30.sp,
-                            shadow = Shadow(Color.Black.copy(alpha = 0.65f), Offset(0f, 2f), 6f),
+                            shadow = if (style.shelfPalette.isLight) {
+                                Shadow.None
+                            } else {
+                                Shadow(Color.Black.copy(alpha = 0.65f), Offset(0f, 2f), 6f)
+                            },
                         ),
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 3,
@@ -339,25 +344,33 @@ fun YomuMangaHeroHeader(
                     }
                 }
 
-                // Quick Download unread chapters button
+                // Explicit Download Options menu (never silently queues hardcoded chapter count)
                 if (onDownloadActionClicked != null) {
-                    Surface(
-                        onClick = { onDownloadActionClicked(DownloadAction.NEXT_5_CHAPTERS) },
-                        shape = YomuShapes.button,
-                        color = style.shelfPalette.cardSurface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        border = BorderStroke(1.dp, style.shelfPalette.subtleBorder),
-                        modifier = Modifier
-                            .size(48.dp)
-                            .yomuFocusHighlight(YomuShapes.button),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Download,
-                                contentDescription = stringResource(MR.strings.manga_download),
-                                modifier = Modifier.size(22.dp),
-                            )
+                    var downloadMenuExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        Surface(
+                            onClick = { downloadMenuExpanded = true },
+                            shape = YomuShapes.button,
+                            color = style.shelfPalette.cardSurface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            border = BorderStroke(1.dp, style.shelfPalette.subtleBorder),
+                            modifier = Modifier
+                                .size(48.dp)
+                                .yomuFocusHighlight(YomuShapes.button),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = MaterialSymbols.Rounded.Download,
+                                    contentDescription = stringResource(MR.strings.yomu_details_download_options),
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
                         }
+                        DownloadDropdownMenu(
+                            expanded = downloadMenuExpanded,
+                            onDismissRequest = { downloadMenuExpanded = false },
+                            onDownloadClicked = onDownloadActionClicked,
+                        )
                     }
                 }
             }

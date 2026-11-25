@@ -1,6 +1,7 @@
 package eu.kanade.presentation.theme
 
 import android.content.Context
+import android.provider.Settings
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -108,6 +109,11 @@ private fun BaseTachiyomiTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val systemAnimatorScale = remember(context) {
+        runCatching {
+            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        }.getOrDefault(1f)
+    }
     val systemDark = isSystemInDarkTheme()
     val effectiveDark = when (appTheme) {
         AppTheme.NATURAL_OAK -> false
@@ -126,6 +132,7 @@ private fun BaseTachiyomiTheme(
         decorationIntensity,
         animationIntensity,
         reducedMotion,
+        systemAnimatorScale,
         showShelfTitles,
         showShelfProgress,
         smartShelvesEnabled,
@@ -139,6 +146,7 @@ private fun BaseTachiyomiTheme(
             decorationIntensity = decorationIntensity,
             animationIntensity = animationIntensity,
             reducedMotion = reducedMotion,
+            systemAnimatorScale = systemAnimatorScale,
             showShelfTitles = showShelfTitles,
             showShelfProgress = showShelfProgress,
             smartShelvesEnabled = smartShelvesEnabled,

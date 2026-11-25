@@ -68,10 +68,32 @@ class UiPreferences(
 
     val yomuSmartShelvesEnabled: Preference<Boolean> = preferenceStore.getBoolean("yomu_smart_shelves_enabled", true)
 
+    val yomuTabletSplitPane: Preference<Boolean> = preferenceStore.getBoolean("yomu_tablet_split_pane", true)
+
     val yomuHomeSectionsOrder: Preference<String> = preferenceStore.getString(
         "yomu_home_sections_order",
         YomuHomeSection.defaultOrder,
     )
+
+    fun resetYomuDefaults() {
+        themeMode.set(ThemeMode.DARK)
+        appTheme.set(AppTheme.MIDNIGHT_WALNUT)
+        themeDarkAmoled.set(false)
+        startOnLibrary.set(false)
+        yomuAccentColor.set(YomuAccentColor.AMETHYST)
+        yomuShelfMaterial.set(YomuShelfMaterial.AUTO)
+        yomuLightingIntensity.set(75)
+        yomuBookThickness.set(70)
+        yomuShadowIntensity.set(80)
+        yomuDecorationIntensity.set(85)
+        yomuAnimationIntensity.set(80)
+        yomuReducedMotion.set(false)
+        yomuShowShelfTitles.set(true)
+        yomuShowShelfProgress.set(true)
+        yomuSmartShelvesEnabled.set(true)
+        yomuTabletSplitPane.set(true)
+        yomuHomeSectionsOrder.set(YomuHomeSection.defaultOrder)
+    }
 
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 
