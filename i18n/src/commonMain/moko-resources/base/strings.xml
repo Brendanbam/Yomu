@@ -1210,6 +1210,9 @@
     <string name="yomu_quick_mark_unread">Mark all unread</string>
     <string name="yomu_details_download_options">Download options</string>
     <string name="yomu_details_open_full">Open full screen</string>
+    <string name="yomu_tablet_resize_panels">Resize library and manga details panels</string>
+    <string name="yomu_tablet_inspected_book">Details open</string>
+    <string name="yomu_downloaded_count">%1$d downloaded</string>
     <string name="yomu_details_select_book_prompt">Select a volume from the bookshelf to inspect its chapters and details.</string>
     <string name="yomu_tracking_active_count">%1$d active trackers</string>
     <string name="yomu_tracking_none_active">No trackers linked yet</string>

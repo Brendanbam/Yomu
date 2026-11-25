@@ -47,6 +47,7 @@ fun LibraryPager(
     onClickManga: (Category, LibraryManga) -> Unit,
     onLongClickManga: (Category, LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
+    inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
 
@@ -131,6 +132,7 @@ fun LibraryPager(
                             onClickContinueReading = onClickContinueReading,
                             searchQuery = searchQuery,
                             onGlobalSearchClicked = onGlobalSearchClicked,
+                            inspectedMangaId = inspectedMangaId,
                         )
                     }
                     LibraryDisplayMode.CollectorEdition -> {
@@ -145,6 +147,7 @@ fun LibraryPager(
                             onClickContinueReading = onClickContinueReading,
                             searchQuery = searchQuery,
                             onGlobalSearchClicked = onGlobalSearchClicked,
+                            inspectedMangaId = inspectedMangaId,
                         )
                     }
                     LibraryDisplayMode.BookSpine -> {
@@ -157,6 +160,7 @@ fun LibraryPager(
                             onLongClick = onLongClickMangaAction,
                             searchQuery = searchQuery,
                             onGlobalSearchClicked = onGlobalSearchClicked,
+                            inspectedMangaId = inspectedMangaId,
                         )
                     }
                     LibraryDisplayMode.Minimal -> {

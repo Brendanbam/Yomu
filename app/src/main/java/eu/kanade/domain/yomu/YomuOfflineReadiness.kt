@@ -22,7 +22,7 @@ internal fun classifyOfflineChapters(
     nextUnread: Chapter?,
     downloadedIds: Set<Long>,
 ): YomuOfflineAvailability = YomuOfflineAvailability(
-    nextUnreadDownloaded = nextUnread?.id in downloadedIds,
+    nextUnreadDownloaded = nextUnread != null && nextUnread.id in downloadedIds,
     allChaptersDownloaded = chapters.isNotEmpty() && chapters.all { it.id in downloadedIds },
 )
 

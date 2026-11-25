@@ -407,7 +407,12 @@ fun YomuHomeScreen(
                                             )
                                         }
 
-                                        if (state.pinnedSources.isNotEmpty()) {
+                                        if (state.hasSourcesError) {
+                                            InlineSectionErrorBanner(
+                                                sectionName = stringResource(MR.strings.label_sources),
+                                                onRetry = onRetry,
+                                            )
+                                        } else if (state.pinnedSources.isNotEmpty()) {
                                             LazyRow(
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                 modifier = Modifier.padding(top = 4.dp),

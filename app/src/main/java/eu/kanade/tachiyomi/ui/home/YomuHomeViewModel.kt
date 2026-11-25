@@ -130,7 +130,7 @@ class YomuHomeViewModel(
         uiPreferences.yomuHomeSectionsOrder.changes(),
     ) { (snapshot, historyState, updatesState), (sourcesState, activeDownloadsCount), sectionsOrderRaw ->
         val (libraryState, downloadCountsByMangaId, offlineAvailability) = snapshot
-        val isInitialLoading = libraryState is SectionLoadState.Loading &&
+        val isInitialLoading = libraryState is SectionLoadState.Loading ||
             historyState is SectionLoadState.Loading
 
         val libraryList = libraryState.dataOrEmpty()
@@ -254,6 +254,7 @@ class YomuHomeViewModel(
             hasHistoryError = historyState is SectionLoadState.Error ||
                 (continueLookupError != null && continueReading == null),
             hasUpdatesError = updatesState is SectionLoadState.Error,
+            hasSourcesError = sourcesState is SectionLoadState.Error,
             heroCover = heroCover,
             heroTitle = heroTitle,
             heroMangaId = heroMangaId,
@@ -409,6 +410,7 @@ class YomuHomeViewModel(
         val hasLibraryError: Boolean = false,
         val hasHistoryError: Boolean = false,
         val hasUpdatesError: Boolean = false,
+        val hasSourcesError: Boolean = false,
         val libraryError: String? = null,
         val historyError: String? = null,
         val updatesError: String? = null,
@@ -442,6 +444,8 @@ class YomuHomeViewModel(
             get() = !isLoading &&
                 !hasLibraryError &&
                 !hasHistoryError &&
+                !hasUpdatesError &&
+                !hasSourcesError &&
                 !areAllSectionsHidden &&
                 continueReading == null &&
                 recentlyUpdated.isEmpty() &&

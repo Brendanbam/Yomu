@@ -123,6 +123,7 @@ internal fun LibraryWoodenBookshelf(
     onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
     val rowSpacing = if (collectorEdition) 18.dp else 12.dp
@@ -214,6 +215,7 @@ internal fun LibraryWoodenBookshelf(
                                     readProgress = progress,
                                     hasBookmarks = libManga.hasBookmarks,
                                     isSelected = manga.id in selection,
+                                    isInspected = manga.id == inspectedMangaId,
                                     showTitle = style.showShelfTitles,
                                     showProgress = style.showShelfProgress,
                                     collectorMode = collectorEdition,
@@ -253,6 +255,7 @@ internal fun LibraryBookSpineShelf(
     onLongClick: (LibraryManga) -> Unit,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
 
@@ -319,6 +322,7 @@ internal fun LibraryBookSpineShelf(
                                     downloadCount = libraryItem.badges.downloadCount,
                                     readProgress = progress,
                                     isSelected = manga.id in selection,
+                                    isInspected = manga.id == inspectedMangaId,
                                     onClick = { onClick(libManga) },
                                     onLongClick = { onLongClick(libManga) },
                                     modifier = Modifier.weight(1f),

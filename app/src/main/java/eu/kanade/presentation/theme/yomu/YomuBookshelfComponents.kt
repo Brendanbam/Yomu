@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -467,6 +468,7 @@ fun YomuPhysicalMangaVolume(
     onClickContinueReading: (() -> Unit)? = null,
     collectorMode: Boolean = false,
     modifier: Modifier = Modifier,
+    isInspected: Boolean = false,
 ) {
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
@@ -484,7 +486,7 @@ fun YomuPhysicalMangaVolume(
         }
     }
 
-    val isElevated = isSelected || isFocused
+    val isElevated = isSelected || isFocused || isInspected
     val liftY by animateDpAsState(
         targetValue = if (isElevated && motionScale > 0f) (-6 * motionScale).dp else 0.dp,
         animationSpec = if (motionScale == 0f) {
@@ -502,16 +504,22 @@ fun YomuPhysicalMangaVolume(
 
     val bookShape = YomuShapes.bookCover
     val primaryColor = MaterialTheme.colorScheme.primary
-    val accessibilityLabel = buildString {
-        append(title)
-        if (unreadCount > 0) append(", $unreadCount unread")
-        if (downloadCount > 0) append(", $downloadCount downloaded")
-    }
+    val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, unreadCount)
+    val downloadLabel = stringResource(MR.strings.yomu_downloaded_count, downloadCount)
+    val inspectedLabel = stringResource(MR.strings.yomu_tablet_inspected_book)
+    val accessibilityLabel = buildList {
+        add(title)
+        if (unreadCount > 0) add(unreadLabel)
+        if (downloadCount > 0) add(downloadLabel)
+    }.joinToString(", ")
 
     Box(
         modifier = modifier
             .bringIntoViewRequester(bringIntoViewRequester)
-            .semantics { contentDescription = accessibilityLabel }
+            .semantics {
+                contentDescription = accessibilityLabel
+                if (isInspected) stateDescription = inspectedLabel
+            }
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -625,6 +633,7 @@ fun YomuPhysicalMangaVolume(
                         when {
                             isSelected -> Modifier.border(2.5.dp, primaryColor, bookShape)
                             isFocused -> Modifier.border(2.5.dp, palette.goldAccent, bookShape)
+                            isInspected -> Modifier.border(2.5.dp, primaryColor, bookShape)
                             else -> Modifier.border(0.8.dp, Color.White.copy(alpha = 0.12f), bookShape)
                         },
                     ),
@@ -845,6 +854,7 @@ fun YomuBookSpineVolume(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isInspected: Boolean = false,
 ) {
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
@@ -861,7 +871,7 @@ fun YomuBookSpineVolume(
         }
     }
 
-    val isElevated = isSelected || isFocused
+    val isElevated = isSelected || isFocused || isInspected
     val liftY by animateDpAsState(
         targetValue = if (isElevated && motionScale > 0f) (-8 * motionScale).dp else 0.dp,
         animationSpec = if (motionScale == 0f) snap() else spring(stiffness = Spring.StiffnessMediumLow),
@@ -883,18 +893,24 @@ fun YomuBookSpineVolume(
     val spineBase = spineColors[hash % spineColors.size]
     val heightDp = (154 + (hash % 24)).dp
     val shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp)
-    val accessibilityLabel = buildString {
-        append(title)
-        if (unreadCount > 0) append(", $unreadCount unread")
-        if (downloadCount > 0) append(", $downloadCount downloaded")
-    }
+    val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, unreadCount)
+    val downloadLabel = stringResource(MR.strings.yomu_downloaded_count, downloadCount)
+    val inspectedLabel = stringResource(MR.strings.yomu_tablet_inspected_book)
+    val accessibilityLabel = buildList {
+        add(title)
+        if (unreadCount > 0) add(unreadLabel)
+        if (downloadCount > 0) add(downloadLabel)
+    }.joinToString(", ")
 
     Box(
         modifier = modifier
             .height(heightDp)
             .offset(y = liftY)
             .bringIntoViewRequester(bringIntoViewRequester)
-            .semantics { contentDescription = accessibilityLabel }
+            .semantics {
+                contentDescription = accessibilityLabel
+                if (isInspected) stateDescription = inspectedLabel
+            }
             .shadow(if (isElevated) 10.dp else 4.dp, shape)
             .clip(shape)
             .background(
@@ -909,6 +925,7 @@ fun YomuBookSpineVolume(
                 when {
                     isSelected -> Modifier.border(2.dp, primaryColor, shape)
                     isFocused -> Modifier.border(2.dp, palette.goldAccent, shape)
+                    isInspected -> Modifier.border(2.dp, primaryColor, shape)
                     else -> Modifier.border(0.7.dp, Color.White.copy(alpha = 0.12f), shape)
                 },
             )

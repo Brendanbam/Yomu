@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.library
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -34,10 +35,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.lifecycle.ViewModelStore
@@ -56,6 +69,7 @@ import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.presentation.theme.yomu.YomuShapes
+import eu.kanade.presentation.theme.yomu.yomuFocusHighlight
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.home.ShowBottomNavEvent
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
@@ -193,10 +207,13 @@ fun LibraryTab() {
                     val useSplitPane = splitPaneEnabled && maxWidth >= 840.dp && !state.selectionMode
                     val showInspector = useSplitPane && inspectedMangaId != null
                     var libraryFraction by rememberSaveable { mutableStateOf(0.56f) }
-                    val availableWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
-                    val minFraction = (360.dp / maxWidth).coerceIn(0.25f, 0.5f)
-                    val maxFraction = (1f - 320.dp / maxWidth).coerceIn(0.5f, 0.75f)
+                    val panelWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
+                    val availableWidthPx = with(LocalDensity.current) { panelWidth.toPx() }
+                    val minFraction = (360.dp / panelWidth).coerceIn(0.25f, 0.5f)
+                    val maxFraction = (1f - 320.dp / panelWidth).coerceIn(0.5f, 0.75f)
                     val fraction = libraryFraction.coerceIn(minFraction, maxFraction)
+                    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                    val dividerLabel = stringResource(MR.strings.yomu_tablet_resize_panels)
 
                     BackHandler(enabled = showInspector) { inspectedMangaId = null }
                     Row(modifier = Modifier.fillMaxSize()) {
@@ -249,25 +266,60 @@ fun LibraryTab() {
                                 getDisplayMode = { viewModel.getDisplayMode() },
                                 getColumnsForOrientation = { viewModel.getColumnsForOrientation(it) },
                                 getItemsForCategory = { state.getItemsForCategory(it) },
+                                inspectedMangaId = inspectedMangaId.takeIf { showInspector },
                             )
                         }
                         if (showInspector) {
                             Box(
                                 modifier = Modifier
-                                    .width(16.dp)
+                                    .width(24.dp)
                                     .fillMaxHeight()
+                                    .yomuFocusHighlight(YomuShapes.pill)
+                                    .semantics {
+                                        contentDescription = dividerLabel
+                                        progressBarRangeInfo = ProgressBarRangeInfo(
+                                            fraction,
+                                            minFraction..maxFraction,
+                                        )
+                                        setProgress { value ->
+                                            libraryFraction = value.coerceIn(minFraction, maxFraction)
+                                            true
+                                        }
+                                    }
+                                    .onPreviewKeyEvent { event ->
+                                        val delta = when (event.key) {
+                                            Key.DirectionLeft -> -0.025f
+                                            Key.DirectionRight -> 0.025f
+                                            else -> 0f
+                                        }
+                                        if (event.type == KeyEventType.KeyDown && delta != 0f) {
+                                            val direction = if (rtl) -1f else 1f
+                                            libraryFraction = (libraryFraction + delta * direction)
+                                                .coerceIn(minFraction, maxFraction)
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    .focusable()
                                     .draggable(
                                         orientation = Orientation.Horizontal,
+                                        reverseDirection = rtl,
                                         state = rememberDraggableState { delta ->
                                             if (availableWidthPx > 0f) {
-                                                libraryFraction = (fraction + delta / availableWidthPx)
+                                                libraryFraction = (libraryFraction + delta / availableWidthPx)
                                                     .coerceIn(minFraction, maxFraction)
                                             }
                                         },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                VerticalDivider(color = style.shelfPalette.subtleBorder, thickness = 2.dp)
+                                VerticalDivider(color = style.shelfPalette.subtleBorder, thickness = 1.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 5.dp, height = 40.dp)
+                                        .background(style.shelfPalette.goldAccent, YomuShapes.pill),
+                                )
                             }
                             Box(
                                 modifier = Modifier
