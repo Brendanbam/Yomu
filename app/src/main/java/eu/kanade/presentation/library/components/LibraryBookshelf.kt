@@ -37,14 +37,13 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.presentation.theme.yomu.YomuBookSpineVolume
 import eu.kanade.presentation.theme.yomu.YomuBookshelfTier
-import eu.kanade.presentation.theme.yomu.YomuPillChip
 import eu.kanade.presentation.theme.yomu.YomuPhysicalMangaVolume
+import eu.kanade.presentation.theme.yomu.YomuPillChip
 import eu.kanade.presentation.theme.yomu.YomuSpacing
 import eu.kanade.presentation.theme.yomu.yomuFocusHighlight
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid
@@ -52,6 +51,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 enum class YomuSmartShelf(val titleRes: StringResource) {
     ALL(MR.strings.yomu_smart_all),
@@ -242,7 +242,9 @@ internal fun LibraryWoodenBookshelf(
                                 collectorMode = collectorEdition,
                                 onClick = { onClick(libManga) },
                                 onLongClick = { onLongClick(libManga) },
-                                onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
+                                onClickContinueReading = if (onClickContinueReading != null &&
+                                    libraryItem.unreadCount > 0
+                                ) {
                                     { onClickContinueReading(libManga) }
                                 } else {
                                     null
@@ -398,7 +400,11 @@ internal fun LibraryMinimalGrid(
                         .clip(shape)
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else style.shelfPalette.subtleBorder,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                style.shelfPalette.subtleBorder
+                            },
                             shape = shape,
                         ),
                 ) {

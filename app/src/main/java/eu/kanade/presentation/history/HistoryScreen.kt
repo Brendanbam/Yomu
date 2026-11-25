@@ -53,7 +53,10 @@ fun HistoryScreen(
         topBar = { scrollBehavior ->
             SearchToolbar(
                 titleContent = { AppBarTitle(stringResource(MR.strings.history)) },
-                navigateUp = { navigator.pop(); Unit }.takeIf { navigator.canPop },
+                navigateUp = {
+                    navigator.pop()
+                    Unit
+                }.takeIf { navigator.canPop },
                 searchQuery = state.searchQuery,
                 onChangeSearchQuery = onSearchQueryChange,
                 actions = {

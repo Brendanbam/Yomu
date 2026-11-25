@@ -282,7 +282,11 @@ fun YomuMangaHeroHeader(
             ) {
                 YomuPrimaryButton(
                     text = stringResource(
-                        if (hasReadChapters) MR.strings.yomu_home_resume_reading else MR.strings.yomu_home_start_reading,
+                        if (hasReadChapters) {
+                            MR.strings.yomu_home_resume_reading
+                        } else {
+                            MR.strings.yomu_home_start_reading
+                        },
                     ),
                     icon = MaterialSymbols.RoundedFilled.PlayArrow,
                     onClick = onContinueReading,

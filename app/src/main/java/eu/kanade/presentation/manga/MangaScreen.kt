@@ -37,11 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import eu.kanade.presentation.manga.components.YomuMangaDetailTab
-import eu.kanade.presentation.manga.components.YomuMangaDetailsPanel
-import eu.kanade.presentation.manga.components.YomuMangaHeroHeader
-import eu.kanade.presentation.manga.components.YomuMangaTabRow
-import eu.kanade.presentation.manga.components.YomuMangaTrackingCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -62,6 +57,11 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
+import eu.kanade.presentation.manga.components.YomuMangaDetailTab
+import eu.kanade.presentation.manga.components.YomuMangaDetailsPanel
+import eu.kanade.presentation.manga.components.YomuMangaHeroHeader
+import eu.kanade.presentation.manga.components.YomuMangaTabRow
+import eu.kanade.presentation.manga.components.YomuMangaTrackingCard
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.getNameForMangaInfo

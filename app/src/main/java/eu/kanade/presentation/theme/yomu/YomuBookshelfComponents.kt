@@ -70,9 +70,9 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 import kotlin.math.abs
 import kotlin.math.sin
+import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 /**
  * Draws a single realistic wooden shelf plank with angled lit top ledge,
@@ -240,7 +240,8 @@ fun YomuWoodShelfPlank(
             drawRect(
                 brush = Brush.verticalGradient(
                     0f to palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.32f else 0.78f) * shadowScale),
-                    0.45f to palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.14f else 0.36f) * shadowScale),
+                    0.45f to
+                        palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.14f else 0.36f) * shadowScale),
                     1f to Color.Transparent,
                     startY = faceBottom,
                     endY = faceBottom + shadowH,
@@ -572,10 +573,15 @@ fun YomuPhysicalMangaVolume(
                                 ),
                             ),
                     )
+                    val baseTitleStyle = if (collectorMode) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.labelLarge
+                    }
                     Text(
                         text = title,
                         color = YomuColors.WarmIvory,
-                        style = (if (collectorMode) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge).copy(
+                        style = baseTitleStyle.copy(
                             fontWeight = FontWeight.SemiBold,
                             lineHeight = if (collectorMode) 17.sp else 15.sp,
                             shadow = Shadow(
@@ -601,7 +607,16 @@ fun YomuPhysicalMangaVolume(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(end = 5.dp, bottom = if (showProgress && readProgress != null && readProgress > 0f) 8.dp else 5.dp)
+                            .padding(
+                                end = 5.dp,
+                                bottom = if (showProgress && readProgress != null &&
+                                    readProgress > 0f
+                                ) {
+                                    8.dp
+                                } else {
+                                    5.dp
+                                },
+                            )
                             .size(19.dp)
                             .clip(CircleShape)
                             .background(Color(0xCC100D0B))
@@ -622,7 +637,16 @@ fun YomuPhysicalMangaVolume(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(end = 5.dp, bottom = if (showProgress && readProgress != null && readProgress > 0f) 8.dp else 5.dp)
+                            .padding(
+                                end = 5.dp,
+                                bottom = if (showProgress && readProgress != null &&
+                                    readProgress > 0f
+                                ) {
+                                    8.dp
+                                } else {
+                                    5.dp
+                                },
+                            )
                             .size(26.dp)
                             .clip(CircleShape)
                             .background(primaryColor.copy(alpha = 0.92f))

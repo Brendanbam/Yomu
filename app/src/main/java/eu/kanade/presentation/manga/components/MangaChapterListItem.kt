@@ -16,8 +16,6 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
-import eu.kanade.presentation.theme.yomu.LocalYomuStyle
-import eu.kanade.presentation.theme.yomu.YomuShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,6 +29,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.theme.yomu.LocalYomuStyle
+import eu.kanade.presentation.theme.yomu.YomuShapes
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -125,86 +125,86 @@ fun MangaChapterListItem(
                     .padding(start = 14.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    var textHeight by remember { mutableIntStateOf(0) }
-                    if (!read) {
-                        Icon(
-                            imageVector = MaterialSymbols.RoundedFilled.Circle,
-                            contentDescription = stringResource(MR.strings.unread),
-                            modifier = Modifier
-                                .height(8.dp)
-                                .padding(end = 4.dp),
-                            tint = MaterialTheme.colorScheme.primary,
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        var textHeight by remember { mutableIntStateOf(0) }
+                        if (!read) {
+                            Icon(
+                                imageVector = MaterialSymbols.RoundedFilled.Circle,
+                                contentDescription = stringResource(MR.strings.unread),
+                                modifier = Modifier
+                                    .height(8.dp)
+                                    .padding(end = 4.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (bookmark) {
+                            Icon(
+                                imageVector = MaterialSymbols.RoundedFilled.Bookmark,
+                                contentDescription = stringResource(MR.strings.action_filter_bookmarked),
+                                modifier = Modifier
+                                    .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { textHeight = it.size.height },
+                            color = LocalContentColor.current.copy(alpha = if (read) DISABLED_ALPHA else 1f),
                         )
                     }
-                    if (bookmark) {
-                        Icon(
-                            imageVector = MaterialSymbols.RoundedFilled.Bookmark,
-                            contentDescription = stringResource(MR.strings.action_filter_bookmarked),
-                            modifier = Modifier
-                                .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() - 2.dp }),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+
+                    Row {
+                        val subtitleStyle = MaterialTheme.typography.bodySmall
+                            .merge(
+                                color = LocalContentColor.current
+                                    .copy(alpha = if (read) DISABLED_ALPHA else SECONDARY_ALPHA),
+                            )
+                        ProvideTextStyle(value = subtitleStyle) {
+                            if (date != null) {
+                                Text(
+                                    text = date,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (readProgress != null || scanlator != null) DotSeparatorText()
+                            }
+                            if (readProgress != null) {
+                                Text(
+                                    text = readProgress,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
+                                )
+                                if (scanlator != null) DotSeparatorText()
+                            }
+                            if (scanlator != null) {
+                                Text(
+                                    text = scanlator,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { textHeight = it.size.height },
-                        color = LocalContentColor.current.copy(alpha = if (read) DISABLED_ALPHA else 1f),
-                    )
                 }
 
-                Row {
-                    val subtitleStyle = MaterialTheme.typography.bodySmall
-                        .merge(
-                            color = LocalContentColor.current
-                                .copy(alpha = if (read) DISABLED_ALPHA else SECONDARY_ALPHA),
-                        )
-                    ProvideTextStyle(value = subtitleStyle) {
-                        if (date != null) {
-                            Text(
-                                text = date,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (readProgress != null || scanlator != null) DotSeparatorText()
-                        }
-                        if (readProgress != null) {
-                            Text(
-                                text = readProgress,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
-                            )
-                            if (scanlator != null) DotSeparatorText()
-                        }
-                        if (scanlator != null) {
-                            Text(
-                                text = scanlator,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-
-            ChapterDownloadIndicator(
-                enabled = downloadIndicatorEnabled,
-                modifier = Modifier.padding(start = 4.dp),
-                downloadStateProvider = downloadStateProvider,
-                downloadProgressProvider = downloadProgressProvider,
-                onClick = { onDownloadClick?.invoke(it) },
-            )
+                ChapterDownloadIndicator(
+                    enabled = downloadIndicatorEnabled,
+                    modifier = Modifier.padding(start = 4.dp),
+                    downloadStateProvider = downloadStateProvider,
+                    downloadProgressProvider = downloadProgressProvider,
+                    onClick = { onDownloadClick?.invoke(it) },
+                )
             }
         }
     }

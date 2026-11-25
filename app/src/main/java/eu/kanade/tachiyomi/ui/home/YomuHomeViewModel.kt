@@ -57,10 +57,16 @@ class YomuHomeViewModel(
 ) : ViewModel() {
 
     private val libraryFlow = getLibraryManga.subscribe()
-        .catch { logcat(LogPriority.ERROR, it); emit(emptyList()) }
+        .catch {
+            logcat(LogPriority.ERROR, it)
+            emit(emptyList())
+        }
 
     private val historyFlow = getHistory.subscribe("")
-        .catch { logcat(LogPriority.ERROR, it); emit(emptyList()) }
+        .catch {
+            logcat(LogPriority.ERROR, it)
+            emit(emptyList())
+        }
 
     private val updatesFlow = getUpdates.subscribe(
         instant = Clock.System.now().minus(1, DateTimeUnit.MONTH, TimeZone.currentSystemDefault()),
@@ -70,10 +76,16 @@ class YomuHomeViewModel(
         hideExcludedScanlators = false,
         includedCategories = emptyList(),
         excludedCategories = emptyList(),
-    ).catch { logcat(LogPriority.ERROR, it); emit(emptyList()) }
+    ).catch {
+        logcat(LogPriority.ERROR, it)
+        emit(emptyList())
+    }
 
     private val sourcesFlow = getEnabledSources.subscribe()
-        .catch { logcat(LogPriority.ERROR, it); emit(emptyList()) }
+        .catch {
+            logcat(LogPriority.ERROR, it)
+            emit(emptyList())
+        }
 
     val state: StateFlow<State> = combine(
         combine(libraryFlow, historyFlow, updatesFlow, ::Triple),
@@ -110,7 +122,9 @@ class YomuHomeViewModel(
         }
 
         val featuredLib = libraryList
-            .sortedByDescending { it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L }
+            .sortedByDescending {
+                it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
+            }
             .firstOrNull()
 
         val heroCover = continueReading?.coverData
@@ -168,7 +182,13 @@ class YomuHomeViewModel(
         // Offline Collection (downloaded chapters or local manga)
         val offlineCollection = libraryList
             .mapNotNull { lib ->
-                val dlCount = if (lib.manga.isLocal()) lib.totalChapters.toInt() else downloadCache.getDownloadCount(lib.manga)
+                val dlCount = if (lib.manga.isLocal()) {
+                    lib.totalChapters.toInt()
+                } else {
+                    downloadCache.getDownloadCount(
+                        lib.manga,
+                    )
+                }
                 if (dlCount > 0 || lib.manga.isLocal()) {
                     toShelfBook(lib, dlCount)
                 } else {
