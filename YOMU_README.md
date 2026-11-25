@@ -15,7 +15,9 @@
 - **Library — The Bookshelves:**
   - Procedural GPU-friendly dark walnut/ebony/oak/cherry shelves with organic wood grain, lit upper ledge, overhead lantern glow, recessed paneling, and physical manga volumes with layered page-block thickness, spine crease, grounded contact shadows, unread badges, sage offline indicators, and spring focus/selection lift.
   - Display modes: `Classic Bookshelf`, `Collector Edition`, `Book Spine`, `Compact Grid`, `Minimal`, `Comfortable Grid`, `Cover-only Grid`, and `List`.
-  - Non-destructive automatic **Smart Shelves**: `All`, `Currently Reading`, `Unread`, `New This Week`, `Recently Added`, `Almost Caught Up`, `Ready Offline`, `Forgotten Stories`, `Completed`.
+  - Non-destructive automatic **Smart Shelves**: `All`, `Currently Reading`, `Unread`, `New This Week`, `Recently Added`, `Almost Caught Up`, `Caught Up`, `Finished Reading`, `Completed Series`, `Forgotten Stories`, `Ready Offline`, and `Fully Downloaded`.
+  - **Split-Pane Tablet Library (`>= 840dp`):** Inspect series details, chapters, tracking, and reader launch side-by-side without losing shelf scroll position.
+  - **Appearance Live Preview & Controls:** Interactive miniature wooden bookshelf preview in Appearance Settings reacting in real time to theme, accent color, shelf material, and 5 appearance sliders (`Shelf lighting`, `Book thickness`, `Book shadows`, `Wood & texture detail`, `Animation intensity`), plus one-tap `Reset Yomu defaults`.
 - **Manga Details, Reader, Discovery & Management:**
   - Cinematic full-bleed `MangaScreen` with metadata pills, amethyst `Start/Resume Reading` CTA, 3-tab `Chapters | Tracking | Details` layout (and split-pane layout on tablets), dark-wood catalog chapter cards, and sage downloaded checkmarks.
   - Distraction-free Mihon reader engine preserved with refined espresso/amethyst/gold overlay bars.
@@ -43,20 +45,23 @@ Because Yomu uses a distinct `applicationId` and signing key, do not attempt to 
 1. Open **Obtainium** and tap **Add App**.
 2. Enter the repository URL: `https://github.com/Brendanbam/Yomu`
 3. Under **Filter APKs by Regular Expression**, set:
-   - `arm64-v8a` for modern Android phones & tablets (recommended)
-   - `universal` if you want the all-ABI APK
-4. Tap **Add** and **Install**. Whenever a new `v*` tag is pushed (or run via **Actions → Yomu Release**), GitHub Actions builds and publishes signed APKs automatically for Obtainium.
+   - `arm64-v8a\.apk$` for modern Android phones & tablets (recommended)
+   - `universal\.apk$` if you want the all-ABI APK
+4. Tap **Add** and **Install**. Whenever a new `vX.Y.Z` tag is pushed (or run via **Actions → Yomu Release**), GitHub Actions validates Spotless, unit tests, SQLDelight migrations, APK metadata/signatures, and publishes signed APKs + SHA-256 checksums automatically for Obtainium.
 
 ## Build Instructions
 
-Prerequisites: JDK 21 (or JDK 17+) and Android SDK (`local.properties` pointing to your SDK directory).
+Prerequisites: JDK 21 and Android SDK (`local.properties` pointing to your SDK directory).
 
 ```bash
+# Run full CI checks
+./gradlew spotlessCheck testDebugUnitTest verifySqlDelightMigration
+
 # Build debug APKs (split ABIs + universal)
 ./gradlew :app:assembleDebug
 
-# Run domain and app unit tests
-./gradlew :domain:testDebugUnitTest :app:testDebugUnitTest
+# Build CI release verification APK
+./gradlew :app:assembleRelease -Pdist=ci
 ```
 
 Output debug APKs are generated in `app/build/outputs/apk/debug/`.
