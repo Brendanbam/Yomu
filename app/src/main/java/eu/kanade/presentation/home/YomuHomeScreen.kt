@@ -594,7 +594,7 @@ private fun ContinueReadingCard(
     val progressTarget = item.seriesProgressFraction
     val animatedProgress by animateFloatAsState(
         targetValue = (progressTarget ?: 0f).coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = if (style.reducedMotion) 0 else 400),
+        animationSpec = tween(durationMillis = (400 * style.effectiveMotionScale).toInt()),
         label = "continueSeriesProgress",
     )
 
@@ -740,6 +740,7 @@ private fun ContinueReadingCard(
 
             Surface(
                 onClick = onClickResume,
+                enabled = item.isSourceAvailable || item.isTargetChapterDownloaded,
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                 border = BorderStroke(1.8.dp, MaterialTheme.colorScheme.primary),
