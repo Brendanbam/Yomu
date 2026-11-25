@@ -13,6 +13,8 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
 import eu.kanade.domain.ui.model.TimeFormat
+import eu.kanade.domain.ui.model.YomuAccentColor
+import eu.kanade.domain.ui.model.YomuShelfMaterial
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
@@ -45,7 +47,52 @@ data object SettingsAppearanceScreen : SearchableSettings {
 
         return listOf(
             getThemeGroup(uiPreferences = uiPreferences),
+            getYomuSanctuaryGroup(uiPreferences = uiPreferences),
             getDisplayGroup(uiPreferences = uiPreferences),
+        )
+    }
+
+    @Composable
+    private fun getYomuSanctuaryGroup(
+        uiPreferences: UiPreferences,
+    ): Preference.PreferenceGroup {
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.yomu_pref_category_sanctuary),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.startOnLibrary,
+                    title = stringResource(MR.strings.yomu_pref_start_on_library),
+                    subtitle = stringResource(MR.strings.yomu_pref_start_on_library_summary),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.yomuAccentColor,
+                    entries = YomuAccentColor.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.yomu_pref_accent_color),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.yomuShelfMaterial,
+                    entries = YomuShelfMaterial.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.yomu_pref_shelf_material),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.yomuShowShelfTitles,
+                    title = stringResource(MR.strings.yomu_pref_show_shelf_titles),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.yomuShowShelfProgress,
+                    title = stringResource(MR.strings.yomu_pref_show_shelf_progress),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.yomuSmartShelvesEnabled,
+                    title = stringResource(MR.strings.yomu_pref_smart_shelves),
+                    subtitle = stringResource(MR.strings.yomu_pref_smart_shelves_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.yomuReducedMotion,
+                    title = stringResource(MR.strings.yomu_pref_reduced_motion),
+                    subtitle = stringResource(MR.strings.yomu_pref_reduced_motion_summary),
+                ),
+            ),
         )
     }
 

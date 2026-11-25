@@ -15,10 +15,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import eu.kanade.domain.ui.model.YomuShelfMaterial
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.core.common.preference.TriState
@@ -218,7 +221,11 @@ private fun ColumnScope.SortPage(
 }
 
 private val displayModes = listOf(
+    MR.strings.yomu_display_classic_bookshelf to LibraryDisplayMode.ClassicBookshelf,
+    MR.strings.yomu_display_collector_edition to LibraryDisplayMode.CollectorEdition,
+    MR.strings.yomu_display_book_spine to LibraryDisplayMode.BookSpine,
     MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
+    MR.strings.yomu_display_minimal to LibraryDisplayMode.Minimal,
     MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
     MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
     MR.strings.action_display_list to LibraryDisplayMode.List,
@@ -228,6 +235,8 @@ private val displayModes = listOf(
 private fun ColumnScope.DisplayPage(
     viewModel: LibrarySettingsViewModel,
 ) {
+    val context = LocalContext.current
+    val uiPreferences = remember { context.appGraph.uiPreferences }
     val displayMode by viewModel.libraryPreferences.displayMode.collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
         displayModes.map { (titleRes, mode) ->
@@ -263,6 +272,67 @@ private fun ColumnScope.DisplayPage(
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }
+
+    // Yomu Bookshelf Customization
+    HeadingItem(MR.strings.yomu_pref_category_sanctuary)
+    val shelfMaterial by uiPreferences.yomuShelfMaterial.collectAsState()
+    SettingsChipRow(MR.strings.yomu_pref_shelf_material) {
+        YomuShelfMaterial.entries.map { material ->
+            FilterChip(
+                selected = shelfMaterial == material,
+                onClick = { uiPreferences.yomuShelfMaterial.set(material) },
+                label = { Text(stringResource(material.titleRes)) },
+            )
+        }
+    }
+    val lighting by uiPreferences.yomuLightingIntensity.collectAsState()
+    SliderItem(
+        value = lighting,
+        valueRange = 0..100,
+        label = stringResource(MR.strings.yomu_pref_lighting_intensity),
+        valueString = "$lighting%",
+        onChange = uiPreferences.yomuLightingIntensity::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    val bookThickness by uiPreferences.yomuBookThickness.collectAsState()
+    SliderItem(
+        value = bookThickness,
+        valueRange = 0..100,
+        label = stringResource(MR.strings.yomu_pref_book_thickness),
+        valueString = "$bookThickness%",
+        onChange = uiPreferences.yomuBookThickness::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    val shadowIntensity by uiPreferences.yomuShadowIntensity.collectAsState()
+    SliderItem(
+        value = shadowIntensity,
+        valueRange = 0..100,
+        label = stringResource(MR.strings.yomu_pref_shadow_intensity),
+        valueString = "$shadowIntensity%",
+        onChange = uiPreferences.yomuShadowIntensity::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    val decorationIntensity by uiPreferences.yomuDecorationIntensity.collectAsState()
+    SliderItem(
+        value = decorationIntensity,
+        valueRange = 0..100,
+        label = stringResource(MR.strings.yomu_pref_decoration_intensity),
+        valueString = "$decorationIntensity%",
+        onChange = uiPreferences.yomuDecorationIntensity::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.yomu_pref_show_shelf_titles),
+        pref = uiPreferences.yomuShowShelfTitles,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.yomu_pref_show_shelf_progress),
+        pref = uiPreferences.yomuShowShelfProgress,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.yomu_pref_smart_shelves),
+        pref = uiPreferences.yomuSmartShelvesEnabled,
+    )
 
     HeadingItem(MR.strings.overlay_header)
     CheckboxItem(

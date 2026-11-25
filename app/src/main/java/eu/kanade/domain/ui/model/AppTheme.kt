@@ -4,7 +4,11 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
 
 enum class AppTheme(val titleRes: StringResource?) {
-    DEFAULT(MR.strings.label_default),
+    MIDNIGHT_WALNUT(MR.strings.theme_yomu_midnight_walnut),
+    BLACK_EBONY(MR.strings.theme_yomu_black_ebony),
+    NATURAL_OAK(MR.strings.theme_yomu_natural_oak),
+    CHERRY_BLOSSOM(MR.strings.theme_yomu_cherry_blossom),
+    DEFAULT(MR.strings.theme_original_mihon),
     MONET(MR.strings.theme_monet),
     CATPPUCCIN(MR.strings.theme_catppuccin),
     GREEN_APPLE(MR.strings.theme_greenapple),

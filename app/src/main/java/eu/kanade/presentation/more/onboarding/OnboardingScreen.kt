@@ -48,8 +48,8 @@ fun OnboardingScreen(
 
     InfoScreen(
         icon = MaterialSymbols.Rounded.RocketLaunch,
-        headingText = stringResource(MR.strings.onboarding_heading),
-        subtitleText = stringResource(MR.strings.onboarding_description),
+        headingText = "Welcome to Yomu",
+        subtitleText = stringResource(MR.strings.yomu_tagline),
         acceptText = stringResource(
             if (isLastStep) {
                 MR.strings.onboarding_action_finish

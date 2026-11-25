@@ -1,9 +1,11 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
@@ -11,8 +13,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
+import eu.kanade.presentation.theme.yomu.LocalYomuStyle
+import eu.kanade.presentation.theme.yomu.YomuShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -82,22 +87,44 @@ fun MangaChapterListItem(
         onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
     )
 
+    val yomuStyle = LocalYomuStyle.current
+
     SwipeableActionsBox(
-        modifier = Modifier.clipToBounds(),
+        modifier = Modifier
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .clipToBounds(),
         startActions = listOfNotNull(start),
         endActions = listOfNotNull(end),
         swipeThreshold = swipeActionThreshold,
         backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
-        Row(
-            modifier = modifier
-                .selectedBackground(selected)
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick,
-                )
-                .padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+        Surface(
+            shape = YomuShapes.chapterRow,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            } else {
+                yomuStyle.shelfPalette.cardSurface
+            },
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    yomuStyle.shelfPalette.subtleBorder.copy(alpha = 0.75f)
+                },
+            ),
+            modifier = modifier.fillMaxWidth(),
         ) {
+            Row(
+                modifier = Modifier
+                    .selectedBackground(selected)
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                    .padding(start = 14.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -178,6 +205,7 @@ fun MangaChapterListItem(
                 downloadProgressProvider = downloadProgressProvider,
                 onClick = { onDownloadClick?.invoke(it) },
             )
+            }
         }
     }
 }

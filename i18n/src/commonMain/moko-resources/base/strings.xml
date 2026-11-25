@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Mihon</string>
+    <string name="app_name" translatable="false">Yomu</string>
 
     <!-- Generic strings -->
     <string name="on">On</string>
@@ -1093,4 +1093,91 @@
     <string name="donationCampaign.paragraph3">Regardless, Mihon will continue to be maintained by me and the volunteers, and it will stay open source.</string>
     <string name="donationCampaign.contactPlatform">Discord</string>
     <string name="donationCampaign.dismiss">Dismiss</string>
+
+    <!-- Yomu Sanctuary -->
+    <string name="yomu_tagline">Your Manga Sanctuary</string>
+    <string name="yomu_nav_home">Home</string>
+    <string name="yomu_home_continue_reading">Continue Reading</string>
+    <string name="yomu_home_recently_updated">Recently Updated</string>
+    <string name="yomu_home_currently_reading">Currently Reading</string>
+    <string name="yomu_home_rediscover">Rediscover</string>
+    <string name="yomu_home_offline_collection">Offline Collection</string>
+    <string name="yomu_home_quick_access">Quick Access</string>
+    <string name="yomu_home_view_all">View All</string>
+    <string name="yomu_home_resume_reading">Resume Reading</string>
+    <string name="yomu_home_start_reading">Start Reading</string>
+    <string name="yomu_home_empty_title">Welcome to Your Manga Sanctuary</string>
+    <string name="yomu_home_empty_subtitle">Add series from your configured sources, open local manga, or restore an existing Mihon backup to fill your bookshelves.</string>
+    <string name="yomu_home_action_browse">Browse Sources</string>
+    <string name="yomu_home_action_restore">Restore Backup</string>
+    <string name="yomu_home_action_library">Open Library</string>
+    <string name="yomu_home_customize">Customize Home</string>
+    <string name="yomu_shelf_manager">Shelf Manager</string>
+    <string name="yomu_about_attribution">Built on the open-source Mihon engine with full preservation of Mihon and third-party licenses.</string>
+
+    <!-- Yomu Themes -->
+    <string name="theme_yomu_midnight_walnut">Midnight Walnut</string>
+    <string name="theme_yomu_black_ebony">Black Ebony</string>
+    <string name="theme_yomu_natural_oak">Natural Oak</string>
+    <string name="theme_yomu_cherry_blossom">Cherry Blossom</string>
+    <string name="theme_original_mihon">Original Mihon</string>
+
+    <!-- Yomu Library Display Modes -->
+    <string name="yomu_display_classic_bookshelf">Classic Bookshelf</string>
+    <string name="yomu_display_collector_edition">Collector Edition</string>
+    <string name="yomu_display_book_spine">Book Spine</string>
+    <string name="yomu_display_minimal">Minimal</string>
+
+    <!-- Yomu Customization Preferences -->
+    <string name="yomu_pref_category_sanctuary">Yomu Sanctuary</string>
+    <string name="yomu_pref_start_on_library">Start in Library</string>
+    <string name="yomu_pref_start_on_library_summary">Open directly to your bookshelves instead of Home</string>
+    <string name="yomu_pref_accent_color">Accent color</string>
+    <string name="yomu_pref_shelf_material">Shelf material</string>
+    <string name="yomu_pref_lighting_intensity">Shelf lighting</string>
+    <string name="yomu_pref_book_thickness">Book thickness</string>
+    <string name="yomu_pref_shadow_intensity">Book shadows</string>
+    <string name="yomu_pref_decoration_intensity">Wood &amp; texture detail</string>
+    <string name="yomu_pref_animation_intensity">Animation intensity</string>
+    <string name="yomu_pref_reduced_motion">Reduced motion</string>
+    <string name="yomu_pref_reduced_motion_summary">Disable book-lift and shelf entrance animations</string>
+    <string name="yomu_pref_show_shelf_titles">Show volume titles</string>
+    <string name="yomu_pref_show_shelf_progress">Show reading progress</string>
+    <string name="yomu_pref_smart_shelves">Smart shelves</string>
+    <string name="yomu_pref_smart_shelves_summary">Show automatic shelf filters in Library</string>
+
+    <!-- Yomu Shelf Materials & Accents -->
+    <string name="yomu_material_auto">Match theme</string>
+    <string name="yomu_material_walnut">Dark Walnut</string>
+    <string name="yomu_material_ebony">Black Ebony</string>
+    <string name="yomu_material_oak">Natural Oak</string>
+    <string name="yomu_material_cherry">Cherry Wood</string>
+    <string name="yomu_accent_amethyst">Amethyst</string>
+    <string name="yomu_accent_gold">Antique Gold</string>
+    <string name="yomu_accent_rose">Sakura Rose</string>
+    <string name="yomu_accent_sage">Jade Sage</string>
+    <string name="yomu_accent_crimson">Imperial Crimson</string>
+
+    <!-- Yomu Smart Shelves -->
+    <string name="yomu_smart_all">All</string>
+    <string name="yomu_smart_currently_reading">Currently Reading</string>
+    <string name="yomu_smart_new_this_week">New This Week</string>
+    <string name="yomu_smart_recently_added">Recently Added</string>
+    <string name="yomu_smart_almost_caught_up">Almost Caught Up</string>
+    <string name="yomu_smart_forgotten">Forgotten Stories</string>
+    <string name="yomu_smart_completed">Completed</string>
+    <string name="yomu_smart_ready_offline">Ready Offline</string>
+    <string name="yomu_smart_unread">Unread</string>
+
+    <!-- Yomu Manga Details Tabs -->
+    <string name="yomu_tab_chapters">Chapters</string>
+    <string name="yomu_tab_tracking">Tracking</string>
+    <string name="yomu_tab_details">Details</string>
+
+    <!-- Yomu Browse -->
+    <string name="yomu_browse_search_hint">Search manga, sources, or extensions...</string>
+    <string name="yomu_browse_pinned_sources">Pinned Sources</string>
+    <string name="yomu_browse_manage">Manage</string>
+    <string name="yomu_browse_all_sources">Installed Sources</string>
+    <string name="yomu_browse_local_manga">Local Manga</string>
 </resources>

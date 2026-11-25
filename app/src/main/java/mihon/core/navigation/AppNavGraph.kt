@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
@@ -51,6 +52,9 @@ import mihon.feature.upcoming.UpcomingScreen
 fun EntryProviderScope<NavKey>.appEntries() {
     entry<HomeRoute> {
         HomeScreen()
+    }
+    entry<HistoryRoute> {
+        HistoryTab()
     }
     entry<DeepLinkRoute> { route ->
         DeepLinkScreen(route.query)

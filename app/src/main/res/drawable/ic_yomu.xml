@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Subtle Japanese sanctuary lintel curve above open book -->
+    <path
+        android:pathData="M24,29 C38,24 70,24 84,29 L82,33 C69,29 39,29 26,33 Z"
+        android:fillColor="#D6AD73" />
+    <path
+        android:pathData="M31,35 L77,35 L77,38 L31,38 Z"
+        android:fillColor="#B89057" />
+    <!-- Open manga book: left outer cover & page spread -->
+    <path
+        android:pathData="M18,44 C28,42 42,44 52,51 L52,82 C42,76 28,74 18,76 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#D6AD73"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- Open manga book: right outer cover & page spread -->
+    <path
+        android:pathData="M90,44 C80,42 66,44 56,51 L56,82 C66,76 80,74 90,76 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#D6AD73"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- Inner page thickness & spine binding -->
+    <path
+        android:pathData="M54,51 L54,83"
+        android:strokeColor="#F4E9D7"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M24,52 C32,51 41,53 48,57 M24,60 C32,59 41,61 48,65 M24,68 C32,67 41,69 48,73"
+        android:strokeColor="#E8C996"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M84,52 C76,51 67,53 60,57 M84,60 C76,59 67,61 60,65 M84,68 C76,67 67,69 60,73"
+        android:strokeColor="#E8C996"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <!-- Center antique gold diamond bookmark jewel -->
+    <path
+        android:pathData="M54,87 L58,92 L54,97 L50,92 Z"
+        android:fillColor="#D6AD73" />
+</vector>

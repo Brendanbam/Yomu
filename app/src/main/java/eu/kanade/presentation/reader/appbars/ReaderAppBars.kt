@@ -76,8 +76,8 @@ fun ReaderAppBars(
     onClickSettings: () -> Unit,
 ) {
     val backgroundColor = MaterialTheme.colorScheme
-        .surfaceColorAtElevation(3.dp)
-        .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
+        .surfaceContainerLow
+        .copy(alpha = if (isSystemInDarkTheme()) 0.92f else 0.96f)
 
     Column(modifier = Modifier.fillMaxHeight()) {
         AnimatedVisibility(

@@ -1,10 +1,13 @@
 package eu.kanade.presentation.reader.appbars
 
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
@@ -23,6 +26,7 @@ fun ReaderTopBar(
     onShare: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val goldAccent = LocalYomuStyle.current.shelfPalette.goldAccent
     AppBar(
         modifier = modifier,
         backgroundColor = Color.Transparent,
@@ -46,6 +50,7 @@ fun ReaderTopBar(
                             } else {
                                 MaterialSymbols.Rounded.Bookmark
                             },
+                            iconTint = if (bookmarked) goldAccent else LocalContentColor.current,
                             onClick = onToggleBookmarked,
                         ),
                     )

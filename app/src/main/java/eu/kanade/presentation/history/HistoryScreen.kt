@@ -25,6 +25,7 @@ import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import kotlinx.datetime.LocalDate
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DeleteSweep
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -47,10 +48,12 @@ fun HistoryScreen(
     onClickFavorite: (mangaId: Long) -> Unit,
     onDialogChange: (HistoryViewModel.Dialog?) -> Unit,
 ) {
+    val navigator = LocalNavigator.current
     Scaffold(
         topBar = { scrollBehavior ->
             SearchToolbar(
                 titleContent = { AppBarTitle(stringResource(MR.strings.history)) },
+                navigateUp = { navigator.pop(); Unit }.takeIf { navigator.canPop },
                 searchQuery = state.searchQuery,
                 onChangeSearchQuery = onSearchQueryChange,
                 actions = {

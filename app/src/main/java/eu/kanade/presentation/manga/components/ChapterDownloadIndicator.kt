@@ -129,7 +129,7 @@ private fun DownloadingIndicator(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        val color = MaterialTheme.colorScheme.onSurfaceVariant
+        val color = MaterialTheme.colorScheme.primary
         val trackColor = color.copy(alpha = TRACK_ALPHA)
         val stroke = Stroke(width = with(LocalDensity.current) { IndicatorStrokeWidth.toPx() }, cap = StrokeCap.Round)
         val downloadProgress = downloadProgressProvider()
@@ -210,7 +210,7 @@ private fun DownloadedIndicator(
             imageVector = MaterialSymbols.RoundedFilled.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(IndicatorSize),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.tertiary,
         )
         DropdownMenu(expanded = isMenuExpanded, onDismissRequest = { isMenuExpanded = false }) {
             DropdownMenuItem(

@@ -8,6 +8,9 @@ import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
 import eu.kanade.domain.ui.model.TimeFormat
+import eu.kanade.domain.ui.model.YomuAccentColor
+import eu.kanade.domain.ui.model.YomuHomeSection
+import eu.kanade.domain.ui.model.YomuShelfMaterial
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isDynamicColorAvailable
 import logcat.LogPriority
@@ -26,18 +29,49 @@ class UiPreferences(
     preferenceStore: PreferenceStore,
 ) {
 
-    val themeMode: Preference<ThemeMode> = preferenceStore.getEnum("pref_theme_mode_key", ThemeMode.SYSTEM)
+    val themeMode: Preference<ThemeMode> = preferenceStore.getEnum("pref_theme_mode_key", ThemeMode.DARK)
 
     val appTheme: Preference<AppTheme> = preferenceStore.getEnum(
         "pref_app_theme",
-        if (DeviceUtil.isDynamicColorAvailable) {
-            AppTheme.MONET
-        } else {
-            AppTheme.DEFAULT
-        },
+        AppTheme.MIDNIGHT_WALNUT,
     )
 
     val themeDarkAmoled: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_dark_amoled_key", false)
+
+    val startOnLibrary: Preference<Boolean> = preferenceStore.getBoolean("yomu_start_on_library", false)
+
+    val yomuAccentColor: Preference<YomuAccentColor> = preferenceStore.getEnum(
+        "yomu_accent_color",
+        YomuAccentColor.AMETHYST,
+    )
+
+    val yomuShelfMaterial: Preference<YomuShelfMaterial> = preferenceStore.getEnum(
+        "yomu_shelf_material",
+        YomuShelfMaterial.AUTO,
+    )
+
+    val yomuLightingIntensity: Preference<Int> = preferenceStore.getInt("yomu_lighting_intensity", 75)
+
+    val yomuBookThickness: Preference<Int> = preferenceStore.getInt("yomu_book_thickness", 70)
+
+    val yomuShadowIntensity: Preference<Int> = preferenceStore.getInt("yomu_shadow_intensity", 80)
+
+    val yomuDecorationIntensity: Preference<Int> = preferenceStore.getInt("yomu_decoration_intensity", 85)
+
+    val yomuAnimationIntensity: Preference<Int> = preferenceStore.getInt("yomu_animation_intensity", 80)
+
+    val yomuReducedMotion: Preference<Boolean> = preferenceStore.getBoolean("yomu_reduced_motion", false)
+
+    val yomuShowShelfTitles: Preference<Boolean> = preferenceStore.getBoolean("yomu_show_shelf_titles", true)
+
+    val yomuShowShelfProgress: Preference<Boolean> = preferenceStore.getBoolean("yomu_show_shelf_progress", true)
+
+    val yomuSmartShelvesEnabled: Preference<Boolean> = preferenceStore.getBoolean("yomu_smart_shelves_enabled", true)
+
+    val yomuHomeSectionsOrder: Preference<String> = preferenceStore.getString(
+        "yomu_home_sections_order",
+        YomuHomeSection.defaultOrder,
+    )
 
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 

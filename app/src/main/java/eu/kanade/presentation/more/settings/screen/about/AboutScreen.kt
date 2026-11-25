@@ -91,7 +91,15 @@ fun AboutScreen() {
         ) {
             item {
                 LogoHeader(
-                    iconPadding = PaddingValues(vertical = 56.dp),
+                    iconPadding = PaddingValues(vertical = 40.dp),
+                )
+            }
+
+            item {
+                TextPreferenceWidget(
+                    title = "Yomu — ${stringResource(MR.strings.yomu_tagline)}",
+                    subtitle = stringResource(MR.strings.yomu_about_attribution),
+                    onPreferenceClick = { navigator.push(OpenSourceLicensesRoute) },
                 )
             }
 

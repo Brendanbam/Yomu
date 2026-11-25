@@ -32,9 +32,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import eu.kanade.presentation.manga.components.YomuMangaDetailTab
+import eu.kanade.presentation.manga.components.YomuMangaDetailsPanel
+import eu.kanade.presentation.manga.components.YomuMangaHeroHeader
+import eu.kanade.presentation.manga.components.YomuMangaTabRow
+import eu.kanade.presentation.manga.components.YomuMangaTrackingCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -262,6 +269,7 @@ private fun MangaScreenSmallImpl(
     onInvertSelection: () -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
+    var activeTab by rememberSaveable { mutableStateOf(YomuMangaDetailTab.CHAPTERS) }
 
     val (chapters, listItem, isAnySelected) = remember(state) {
         Triple(
@@ -270,6 +278,7 @@ private fun MangaScreenSmallImpl(
             third = state.isAnySelected,
         )
     }
+    val readCount = remember(state.chapters) { state.chapters.count { it.chapter.read } }
 
     BackHandler(enabled = isAnySelected) {
         onAllChapterSelected(false)
@@ -323,7 +332,10 @@ private fun MangaScreenSmallImpl(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            val isFABVisible = state.hasUnreadChapters && !isAnySelected
+            val isFirstItemVisible by remember {
+                derivedStateOf { chapterListState.firstVisibleItemIndex == 0 }
+            }
+            val isFABVisible = state.hasUnreadChapters && !isAnySelected && !isFirstItemVisible
             SmallExtendedFloatingActionButton(
                 text = {
                     Text(
@@ -369,15 +381,19 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.INFO_BOX,
                         contentType = MangaScreenItem.INFO_BOX,
                     ) {
-                        MangaInfoBox(
-                            isTabletUi = false,
-                            appBarPadding = topPadding,
+                        YomuMangaHeroHeader(
                             manga = state.manga,
-                            source = remember { state.source },
                             sourceName = state.sourceName,
-                            isStubSource = remember { state.source is StubSource },
+                            chapterCount = state.chapters.size,
+                            readCount = readCount,
+                            hasReadChapters = state.hasReadChapters,
+                            hasUnreadChapters = state.hasUnreadChapters,
+                            appBarPadding = topPadding,
                             onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
+                            onContinueReading = onContinueReading,
+                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onEditCategoryClicked = onEditCategoryClicked,
+                            onDownloadActionClicked = onDownloadActionClicked,
                         )
                     }
 
@@ -385,59 +401,66 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.ACTION_ROW,
                         contentType = MangaScreenItem.ACTION_ROW,
                     ) {
-                        MangaActionRow(
-                            favorite = state.manga.favorite,
+                        YomuMangaTabRow(
+                            selectedTab = activeTab,
                             trackingCount = state.trackingCount,
-                            nextUpdate = nextUpdate,
-                            isUserIntervalMode = state.manga.fetchInterval < 0,
-                            onAddToLibraryClicked = onAddToLibraryClicked,
-                            onWebViewClicked = onWebViewClicked,
-                            onWebViewLongClicked = onWebViewLongClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onEditCategory = onEditCategoryClicked,
+                            onSelectTab = { activeTab = it },
                         )
                     }
 
-                    item(
-                        key = MangaScreenItem.DESCRIPTION_WITH_TAG,
-                        contentType = MangaScreenItem.DESCRIPTION_WITH_TAG,
-                    ) {
-                        ExpandableMangaDescription(
-                            defaultExpandState = state.isFromSource,
-                            description = state.manga.description,
-                            tagsProvider = { state.manga.genre },
-                            notes = state.manga.notes,
-                            onTagSearch = onTagSearch,
-                            onCopyTagToClipboard = onCopyTagToClipboard,
-                            onEditNotes = onEditNotesClicked,
-                        )
-                    }
+                    when (activeTab) {
+                        YomuMangaDetailTab.CHAPTERS -> {
+                            item(
+                                key = MangaScreenItem.CHAPTER_HEADER,
+                                contentType = MangaScreenItem.CHAPTER_HEADER,
+                            ) {
+                                ChapterHeader(
+                                    enabled = !isAnySelected,
+                                    chapterCount = chapters.size,
+                                    missingChapterCount = state.missingChapterCount,
+                                    onClick = onFilterClicked,
+                                )
+                            }
 
-                    item(
-                        key = MangaScreenItem.CHAPTER_HEADER,
-                        contentType = MangaScreenItem.CHAPTER_HEADER,
-                    ) {
-                        ChapterHeader(
-                            enabled = !isAnySelected,
-                            chapterCount = chapters.size,
-                            missingChapterCount = state.missingChapterCount,
-                            onClick = onFilterClicked,
-                        )
+                            sharedChapterItems(
+                                manga = state.manga,
+                                chapters = listItem,
+                                isAnyChapterSelected = state.selectedChapters.isNotEmpty(),
+                                chapterSwipeStartAction = chapterSwipeStartAction,
+                                chapterSwipeEndAction = chapterSwipeEndAction,
+                                onChapterClicked = onChapterClicked,
+                                onDownloadChapter = onDownloadChapter,
+                                downloadProgressProvider = downloadProgressProvider,
+                                onChapterSelected = onChapterSelected,
+                                onChapterSwipe = onChapterSwipe,
+                            )
+                        }
+                        YomuMangaDetailTab.TRACKING -> {
+                            item(key = "yomu_tracking_panel") {
+                                YomuMangaTrackingCard(
+                                    trackingCount = state.trackingCount,
+                                    hasLoggedInTrackers = state.hasLoggedInTrackers,
+                                    readCount = readCount,
+                                    totalChapters = state.chapters.size,
+                                    onTrackingClicked = onTrackingClicked,
+                                )
+                            }
+                        }
+                        YomuMangaDetailTab.DETAILS -> {
+                            item(key = MangaScreenItem.DESCRIPTION_WITH_TAG) {
+                                YomuMangaDetailsPanel(
+                                    manga = state.manga,
+                                    sourceName = state.sourceName,
+                                    onTagSearch = onTagSearch,
+                                    onCopyTagToClipboard = onCopyTagToClipboard,
+                                    onEditNotesClicked = onEditNotesClicked,
+                                    onEditIntervalClicked = onEditIntervalClicked,
+                                    onWebViewClicked = onWebViewClicked,
+                                    onWebViewLongClicked = onWebViewLongClicked,
+                                )
+                            }
+                        }
                     }
-
-                    sharedChapterItems(
-                        manga = state.manga,
-                        chapters = listItem,
-                        isAnyChapterSelected = state.selectedChapters.isNotEmpty(),
-                        chapterSwipeStartAction = chapterSwipeStartAction,
-                        chapterSwipeEndAction = chapterSwipeEndAction,
-                        onChapterClicked = onChapterClicked,
-                        onDownloadChapter = onDownloadChapter,
-                        downloadProgressProvider = downloadProgressProvider,
-                        onChapterSelected = onChapterSelected,
-                        onChapterSwipe = onChapterSwipe,
-                    )
                 }
             }
         }
@@ -554,7 +577,10 @@ fun MangaScreenLargeImpl(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            val isFABVisible = state.hasUnreadChapters && !isAnySelected
+            val isFirstItemVisible by remember {
+                derivedStateOf { chapterListState.firstVisibleItemIndex == 0 }
+            }
+            val isFABVisible = state.hasUnreadChapters && !isAnySelected && !isFirstItemVisible
             SmallExtendedFloatingActionButton(
                 text = {
                     Text(
@@ -589,41 +615,42 @@ fun MangaScreenLargeImpl(
                     end = contentPadding.calculateEndPadding(layoutDirection),
                 ),
                 startContent = {
+                    val tabletReadCount = remember(state.chapters) { state.chapters.count { it.chapter.read } }
                     Column(
                         modifier = Modifier
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = contentPadding.calculateBottomPadding()),
                     ) {
-                        MangaInfoBox(
-                            isTabletUi = true,
-                            appBarPadding = contentPadding.calculateTopPadding(),
+                        YomuMangaHeroHeader(
                             manga = state.manga,
-                            source = remember { state.source },
                             sourceName = state.sourceName,
-                            isStubSource = remember { state.source is StubSource },
+                            chapterCount = state.chapters.size,
+                            readCount = tabletReadCount,
+                            hasReadChapters = state.hasReadChapters,
+                            hasUnreadChapters = state.hasUnreadChapters,
+                            appBarPadding = contentPadding.calculateTopPadding(),
                             onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
-                        )
-                        MangaActionRow(
-                            favorite = state.manga.favorite,
-                            trackingCount = state.trackingCount,
-                            nextUpdate = nextUpdate,
-                            isUserIntervalMode = state.manga.fetchInterval < 0,
+                            onContinueReading = onContinueReading,
                             onAddToLibraryClicked = onAddToLibraryClicked,
-                            onWebViewClicked = onWebViewClicked,
-                            onWebViewLongClicked = onWebViewLongClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onEditCategory = onEditCategoryClicked,
+                            onEditCategoryClicked = onEditCategoryClicked,
+                            onDownloadActionClicked = onDownloadActionClicked,
                         )
-                        ExpandableMangaDescription(
-                            defaultExpandState = true,
-                            description = state.manga.description,
-                            tagsProvider = { state.manga.genre },
-                            notes = state.manga.notes,
+                        YomuMangaTrackingCard(
+                            trackingCount = state.trackingCount,
+                            hasLoggedInTrackers = state.hasLoggedInTrackers,
+                            readCount = tabletReadCount,
+                            totalChapters = state.chapters.size,
+                            onTrackingClicked = onTrackingClicked,
+                        )
+                        YomuMangaDetailsPanel(
+                            manga = state.manga,
+                            sourceName = state.sourceName,
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
-                            onEditNotes = onEditNotesClicked,
+                            onEditNotesClicked = onEditNotesClicked,
+                            onEditIntervalClicked = onEditIntervalClicked,
+                            onWebViewClicked = onWebViewClicked,
+                            onWebViewLongClicked = onWebViewLongClicked,
                         )
                     }
                 },

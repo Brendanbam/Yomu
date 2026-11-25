@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationItemColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,10 +24,11 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
@@ -48,6 +49,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
 import mihon.core.navigation.DownloadQueueRoute
+import mihon.core.navigation.HistoryRoute
 import mihon.core.navigation.LocalNavigator
 import mihon.core.navigation.MangaRoute
 import mihon.core.navigation.Navigator
@@ -68,6 +70,19 @@ sealed interface TopLevelRoute : NavKey {
 
     @Composable
     fun options(isSelected: Boolean): TabOptions
+
+    @Serializable
+    data object Home : TopLevelRoute {
+        @Composable
+        override fun options(isSelected: Boolean): TabOptions {
+            return TabOptions(
+                title = stringResource(MR.strings.yomu_nav_home),
+                icon = painterResource(
+                    if (isSelected) R.drawable.ic_nav_home_filled else R.drawable.ic_nav_home,
+                ),
+            )
+        }
+    }
 
     @Serializable
     data object Library : TopLevelRoute {
@@ -134,7 +149,15 @@ sealed interface TopLevelRoute : NavKey {
 
 @Composable
 fun HomeScreen() {
-    val tabNavigator = rememberNavigator(TopLevelRoute.Library)
+    val context = LocalContext.current
+    val initialTab = remember {
+        if (context.appGraph.uiPreferences.startOnLibrary.get()) {
+            TopLevelRoute.Library
+        } else {
+            TopLevelRoute.Home
+        }
+    }
+    val tabNavigator = rememberNavigator(initialTab)
     val navigator = LocalNavigator.current
     val resultEventBus = LocalResultEventBus.current
     val tabletUi = isTabletUi()
@@ -156,12 +179,14 @@ fun HomeScreen() {
         }
     }
 
+    val navContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+
     NavigationSuiteScaffold(
         navigationSuiteType = navigationSuiteType,
         state = navigationSuiteState,
         navigationSuiteColors = NavigationSuiteDefaults.colors(
-            navigationRailContainerColor = MaterialTheme.colorScheme
-                .surfaceColorAtElevation(3.dp),
+            navigationBarContainerColor = navContainerColor,
+            navigationRailContainerColor = navContainerColor,
         ),
         navigationItemVerticalArrangement = Arrangement.Center,
         navigationItems = {
@@ -182,6 +207,10 @@ fun HomeScreen() {
             popTransitionSpec = { spec },
             predictivePopTransitionSpec = { spec },
             entryProvider = entryProvider {
+                entry<TopLevelRoute.Home> {
+                    YomuHomeTab()
+                }
+
                 entry<TopLevelRoute.Library> {
                     LibraryTab()
                 }
@@ -206,26 +235,27 @@ fun HomeScreen() {
     }
 
     ResultEffect<TabEvent> {
-        val route = when (it) {
+        when (it) {
+            TabEvent.Home -> tabNavigator.replaceAll(TopLevelRoute.Home)
             is TabEvent.Library -> {
                 if (it.query != null) resultEventBus.sendResult(LibrarySearchEvent(it.query))
-                TopLevelRoute.Library
+                tabNavigator.replaceAll(TopLevelRoute.Library)
+                if (it.mangaIdToOpen != null) {
+                    navigator.push(MangaRoute(it.mangaIdToOpen))
+                }
             }
-            TabEvent.Updates -> TopLevelRoute.Updates
-            TabEvent.History -> TopLevelRoute.History
+            TabEvent.Updates -> tabNavigator.replaceAll(TopLevelRoute.Updates)
+            TabEvent.History -> navigator.push(HistoryRoute)
             is TabEvent.Browse -> {
                 if (it.toExtensions) resultEventBus.sendResult(BrowseShowExtensionsEvent)
-                TopLevelRoute.Browse
+                tabNavigator.replaceAll(TopLevelRoute.Browse)
             }
-            is TabEvent.More -> TopLevelRoute.More
-        }
-        tabNavigator.replaceAll(route)
-
-        if (it is TabEvent.Library && it.mangaIdToOpen != null) {
-            navigator.push(MangaRoute(it.mangaIdToOpen))
-        }
-        if (it is TabEvent.More && it.toDownloads) {
-            navigator.push(DownloadQueueRoute)
+            is TabEvent.More -> {
+                tabNavigator.replaceAll(TopLevelRoute.More)
+                if (it.toDownloads) {
+                    navigator.push(DownloadQueueRoute)
+                }
+            }
         }
     }
 }
@@ -239,10 +269,22 @@ private fun NavigationSuiteItem(
     val resultEventBus = LocalResultEventBus.current
     val selected = tabNavigator.current == tab
     val options = tab.options(selected)
+    val primary = MaterialTheme.colorScheme.primary
+    val inactive = MaterialTheme.colorScheme.onSurfaceVariant
+    val itemColors = NavigationItemColors(
+        selectedIconColor = primary,
+        selectedTextColor = primary,
+        selectedIndicatorColor = primary.copy(alpha = 0.22f),
+        unselectedIconColor = inactive,
+        unselectedTextColor = inactive,
+        disabledIconColor = inactive.copy(alpha = 0.38f),
+        disabledTextColor = inactive.copy(alpha = 0.38f),
+    )
 
     NavigationSuiteItem(
         navigationSuiteType = navigationSuiteType,
         selected = selected,
+        colors = itemColors,
         onClick = {
             if (!selected) {
                 tabNavigator.replaceAll(tab)
@@ -262,7 +304,9 @@ private fun NavigationSuiteItem(
         label = {
             Text(
                 text = options.title,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -297,7 +341,10 @@ private fun tabBadge(tab: TopLevelRoute): (@Composable () -> Unit)? {
     }
     if (count <= 0) return null
     return {
-        Badge {
+        Badge(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) {
             val desc = when (tab) {
                 is TopLevelRoute.Updates -> pluralStringResource(
                     MR.plurals.notification_chapters_generic,
@@ -324,6 +371,7 @@ private fun tabBadge(tab: TopLevelRoute): (@Composable () -> Unit)? {
 }
 
 sealed interface TabEvent {
+    data object Home : TabEvent
     data class Library(val mangaIdToOpen: Long? = null, val query: String? = null) : TabEvent
     data object Updates : TabEvent
     data object History : TabEvent
@@ -347,9 +395,9 @@ private val spec = materialFadeThroughIn(
 ) togetherWith materialFadeThroughOut(durationMillis = TabFadeDuration)
 
 private val TABS: List<TopLevelRoute> = listOf(
+    TopLevelRoute.Home,
     TopLevelRoute.Library,
     TopLevelRoute.Updates,
-    TopLevelRoute.History,
     TopLevelRoute.Browse,
     TopLevelRoute.More,
 )

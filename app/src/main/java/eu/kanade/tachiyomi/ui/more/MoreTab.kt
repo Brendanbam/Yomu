@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import mihon.core.navigation.AboutRoute
 import mihon.core.navigation.CategoryRoute
 import mihon.core.navigation.DownloadQueueRoute
+import mihon.core.navigation.HistoryRoute
 import mihon.core.navigation.LocalNavigator
 import mihon.core.navigation.StatsRoute
 import mihon.core.navigation.SupportUsRoute
@@ -45,6 +46,7 @@ fun MoreTab() {
         onDownloadedOnlyChange = { viewModel.downloadedOnly = it },
         incognitoMode = viewModel.incognitoMode,
         onIncognitoModeChange = { viewModel.incognitoMode = it },
+        onClickHistory = { navigator.push(HistoryRoute) },
         onClickDownloadQueue = { navigator.push(DownloadQueueRoute) },
         onClickCategories = { navigator.push(CategoryRoute) },
         onClickStats = { navigator.push(StatsRoute) },
