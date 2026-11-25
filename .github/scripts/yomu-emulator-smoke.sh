@@ -15,7 +15,7 @@ adb() {
 
 adb start-server
 "$ANDROID_HOME/emulator/emulator" -avd yomu-ci -no-window -no-audio -no-snapshot \
-  -gpu swiftshader -feature -Vulkan -no-boot-anim > "$OUT/emulator.log" 2>&1 &
+  -gpu swangle -no-boot-anim > "$OUT/emulator.log" 2>&1 &
 EMULATOR_PID=$!
 cleanup() {
   if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
@@ -114,3 +114,4 @@ assert_running
 adb shell wm size reset
 adb shell wm density reset
 echo "Launch, backup restore, reader launch, tablet controls, and restart checks passed."
+
