@@ -115,6 +115,7 @@ jobs:
           ./gradlew :app:assembleRelease -Pdist=github -PyomuVersionName="${VERSION_NAME}"
 
       - name: Verify APK metadata, signatures, and prepare release assets
+        id: verified
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.meta.outputs.tag }}
@@ -124,6 +125,21 @@ jobs:
           BUILD_TOOLS_DIR="$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           AAPT2="${BUILD_TOOLS_DIR}/aapt2"
           APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
+
+          certificate_sha256() {
+            local fingerprint
+            fingerprint="$(
+              "$APKSIGNER" verify --print-certs "$1" |
+                sed -nE 's/.*[[:space:]]certificate SHA-256 digest:[[:space:]]*([[:xdigit:]]{64})[[:space:]]*$/\1/p' |
+                tr '[:upper:]' '[:lower:]' |
+                sort -u
+            )" || return 1
+            if ! [[ "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::Expected exactly one unique signing certificate SHA-256 digest in $1" >&2
+              return 1
+            fi
+            printf '%s\n' "$fingerprint"
+          }
 
           IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION_NAME"
           VERSION_CODE="$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))"
@@ -165,7 +181,7 @@ jobs:
             fi
 
             "$APKSIGNER" verify --verbose "$SRC"
-            DIGEST="$("$APKSIGNER" verify --print-certs "$SRC" | grep '^Signer #1 certificate SHA-256 digest:')"
+            DIGEST="$(certificate_sha256 "$SRC")"
             if [ -z "$CERTIFICATE" ]; then
               CERTIFICATE="$DIGEST"
             elif [ "$CERTIFICATE" != "$DIGEST" ]; then
@@ -182,18 +198,39 @@ jobs:
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/yomu-previous"
-          gh release download "$PREVIOUS_TAG" --pattern '*-arm64-v8a.apk' --dir "$RUNNER_TEMP/yomu-previous"
-          PREVIOUS_APK="$(find "$RUNNER_TEMP/yomu-previous" -name '*.apk' -print -quit)"
-          PREVIOUS_CERT="$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | grep '^Signer #1 certificate SHA-256 digest:')"
+          gh release download "$PREVIOUS_TAG" \
+            --pattern "yomu-${PREVIOUS_TAG}-arm64-v8a.apk" \
+            --pattern "yomu-${PREVIOUS_TAG}-x86_64.apk" \
+            --dir "$RUNNER_TEMP/yomu-previous"
+          PREVIOUS_APK="$RUNNER_TEMP/yomu-previous/yomu-${PREVIOUS_TAG}-arm64-v8a.apk"
+          PREVIOUS_CERT="$(certificate_sha256 "$PREVIOUS_APK")"
           PREVIOUS_CODE="$("$AAPT2" dump badging "$PREVIOUS_APK" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p")"
           if [ "$PREVIOUS_CERT" != "$CERTIFICATE" ] || ! [[ "$PREVIOUS_CODE" =~ ^[0-9]+$ ]] || [ "$VERSION_CODE" -le "$PREVIOUS_CODE" ]; then
             echo "::error::Release is not an upgrade of the previous signed production APK"
             exit 1
           fi
+          echo "previous_x86_64=$RUNNER_TEMP/yomu-previous/yomu-${PREVIOUS_TAG}-x86_64.apk" >> "$GITHUB_OUTPUT"
           (cd release-assets && sha256sum yomu-"${TAG}"-*.apk > "yomu-${TAG}-checksums.sha256")
       - name: Remove release signing material
         if: always()
         run: rm -f "${RUNNER_TEMP}/yomu-release.jks"
+
+      - name: Install emulator system image
+        run: bash .github/scripts/setup-yomu-ci-avd.sh
+
+      - name: Install the signed update over the previous release
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          PREVIOUS_APK: ${{ steps.verified.outputs.previous_x86_64 }}
+        run: bash .github/scripts/yomu-emulator-smoke.sh "release-assets/yomu-${TAG}-x86_64.apk" "$PREVIOUS_APK"
+
+      - name: Upload signed upgrade diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-upgrade-diagnostics
+          path: smoke-results/
+          if-no-files-found: ignore
 
       - name: Publish GitHub Release
         env:
@@ -202,7 +239,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > "${RUNNER_TEMP}/release-notes.md" <<EOF
-          ## Yomu — Your Manga Sanctuary (${TAG})
+          ## Yomu - Your Manga Sanctuary (${TAG})
 
           - **Recommended for modern 64-bit Android phones & tablets (e.g. Legion Y700):** \`yomu-${TAG}-arm64-v8a.apk\`
           - **Universal APK (all Android ABIs):** \`yomu-${TAG}-universal.apk\`

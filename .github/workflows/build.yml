@@ -108,15 +108,7 @@ jobs:
           path: smoke-apk
 
       - name: Install emulator system image
-        run: |
-          set -euo pipefail
-          test -e /dev/kvm || { echo "::error::KVM unavailable on this runner"; exit 1; }
-          sudo chmod 666 /dev/kvm
-          tools="$ANDROID_HOME/cmdline-tools/latest/bin"
-          image="system-images;android-35;google_apis;x86_64"
-          "$tools/sdkmanager" --install "platform-tools" "emulator" "$image"
-          "$tools/avdmanager" create avd --force --name yomu-ci --package "$image" <<< no
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+        run: bash .github/scripts/setup-yomu-ci-avd.sh
 
       - name: Test startup, backup restore, reader, and tablet controls
         run: bash .github/scripts/yomu-emulator-smoke.sh smoke-apk/app-x86_64-release.apk

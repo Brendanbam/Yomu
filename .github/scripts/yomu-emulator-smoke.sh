@@ -2,12 +2,18 @@
 set -euo pipefail
 
 APK="${1:?APK path required}"
+UPGRADE_FROM="${2:-}"
 PACKAGE=app.yomu
 ACTIVITY="$PACKAGE/eu.kanade.tachiyomi.ui.main.MainActivity"
 OUT=smoke-results
 mkdir -p "$OUT"
 test -f "$APK"
 
+adb() {
+  timeout 60 "$ANDROID_HOME/platform-tools/adb" "$@"
+}
+
+adb start-server
 "$ANDROID_HOME/emulator/emulator" -avd yomu-ci -no-window -no-audio -no-snapshot \
   -gpu swiftshader_indirect -no-boot-anim > "$OUT/emulator.log" 2>&1 &
 EMULATOR_PID=$!
@@ -20,10 +26,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-timeout 360 adb wait-for-device
 booted=false
-for attempt in $(seq 1 120); do
-  if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then
+boot_deadline=$((SECONDS + 360))
+while (( SECONDS < boot_deadline )); do
+  if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+    echo "::error::Android emulator exited before boot"
+    tail -80 "$OUT/emulator.log"
+    exit 1
+  fi
+  if [ "$(timeout 10 "$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then
     booted=true
     break
   fi
@@ -31,6 +42,8 @@ for attempt in $(seq 1 120); do
 done
 if [ "$booted" != true ]; then
   echo "::error::Android emulator did not complete boot"
+  adb devices -l
+  tail -80 "$OUT/emulator.log"
   exit 1
 fi
 
@@ -39,8 +52,6 @@ adb shell settings put system accelerometer_rotation 0
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
-adb install -g "$APK"
-adb logcat -c
 
 assert_running() {
   adb shell pidof "$PACKAGE" >/dev/null
@@ -62,6 +73,24 @@ launch() {
 
 adb shell wm size 1080x1920
 adb shell wm density 420
+
+if [ -n "$UPGRADE_FROM" ]; then
+  adb install -g "$UPGRADE_FROM"
+  adb logcat -c
+  launch
+  first_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
+  test -n "$first_install_time"
+  adb install -r -g "$APK"
+  launch
+  updated_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
+  test "$first_install_time" = "$updated_install_time"
+  adb exec-out screencap -p > "$OUT/01-signed-upgrade.png"
+  echo "Signed upgrade installed in place and launched."
+  exit 0
+fi
+
+adb install -g "$APK"
+adb logcat -c
 launch
 adb exec-out screencap -p > "$OUT/01-phone-launch.png"
 
