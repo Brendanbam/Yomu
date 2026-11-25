@@ -15,7 +15,7 @@ adb() {
 
 adb start-server
 "$ANDROID_HOME/emulator/emulator" -avd yomu-ci -no-window -no-audio -no-snapshot \
-  -gpu swangle -no-boot-anim > "$OUT/emulator.log" 2>&1 &
+  -gpu off -no-boot-anim > "$OUT/emulator.log" 2>&1 &
 EMULATOR_PID=$!
 cleanup() {
   if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
