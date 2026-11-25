@@ -17,7 +17,7 @@ import eu.kanade.core.util.fastFilterNot
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.yomu.isNextUnreadChapterDownloaded
+import eu.kanade.domain.yomu.getOfflineAvailability
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -428,11 +428,11 @@ class LibraryViewModel(
             libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadCounts.getValue(manga.id)
-                val nextDownloaded = manga.isNextUnreadChapterDownloaded(
+                val offlineAvailability = manga.getOfflineAvailability(
                     downloadCount,
                     getChaptersByMangaId,
-                    downloadManager,
                     downloadCache,
+                    checkFullArchive = true,
                 )
                 LibraryItem(
                     libraryManga = manga,
@@ -441,7 +441,8 @@ class LibraryViewModel(
                     isLocal = manga.manga.isLocal(),
                     sourceName = source.name.lowercase(),
                     sourceLanguage = source.lang,
-                    hasNextReadableChapterDownloaded = nextDownloaded,
+                    hasNextReadableChapterDownloaded = offlineAvailability.nextUnreadDownloaded,
+                    hasFullOfflineArchive = offlineAvailability.allChaptersDownloaded,
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {
                             downloadCount
