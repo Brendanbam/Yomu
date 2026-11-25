@@ -33,7 +33,7 @@ val keystorePropertiesFile = layout.settingsDirectory.file("keystore.properties"
 
 val yomuVersionNameOverride = providers.gradleProperty("yomuVersionName").orNull
     ?: System.getenv("YOMU_VERSION_NAME")?.takeIf { it.isNotBlank() }
-val resolvedYomuVersionName = yomuVersionNameOverride?.removePrefix("v")?.trim() ?: "2.0.0"
+val resolvedYomuVersionName = yomuVersionNameOverride?.removePrefix("v")?.trim() ?: "2.1.0"
 
 val yomuVersionCodeOverride = providers.gradleProperty("yomuVersionCode").orNull
     ?: System.getenv("YOMU_VERSION_CODE")?.takeIf { it.isNotBlank() }
