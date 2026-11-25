@@ -426,8 +426,10 @@ internal fun LibraryMinimalGrid(
         ) { libraryItem ->
             val manga = libraryItem.libraryManga.manga
             val isSelected = manga.id in selection
-            val unreadLabel = stringResource(tachiyomi.i18n.MR.strings.yomu_home_unread_remaining, libraryItem.badges.unreadCount)
-            val downloadedLabel = stringResource(tachiyomi.i18n.MR.strings.yomu_downloaded_count, libraryItem.badges.downloadCount)
+            val unreadLabel =
+                stringResource(tachiyomi.i18n.MR.strings.yomu_home_unread_remaining, libraryItem.badges.unreadCount)
+            val downloadedLabel =
+                stringResource(tachiyomi.i18n.MR.strings.yomu_downloaded_count, libraryItem.badges.downloadCount)
             val accessibilityLabel = buildList {
                 add(manga.title)
                 if (libraryItem.badges.unreadCount > 0) add(unreadLabel)
