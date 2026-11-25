@@ -32,7 +32,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.icerock.moko.resources.StringResource
+import eu.kanade.domain.yomu.SmartShelfEntry
+import eu.kanade.domain.yomu.SmartShelfSnapshot
+import eu.kanade.domain.yomu.YomuSmartShelf
+import eu.kanade.domain.yomu.YomuSmartShelfClassifier
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.presentation.theme.yomu.YomuBookSpineVolume
@@ -41,79 +44,42 @@ import eu.kanade.presentation.theme.yomu.YomuPhysicalMangaVolume
 import eu.kanade.presentation.theme.yomu.YomuPillChip
 import eu.kanade.presentation.theme.yomu.YomuSpacing
 import eu.kanade.presentation.theme.yomu.yomuFocusHighlight
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.FastScrollLazyVerticalGrid
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
-enum class YomuSmartShelf(val titleRes: StringResource) {
-    ALL(MR.strings.yomu_smart_all),
-    CURRENTLY_READING(MR.strings.yomu_smart_currently_reading),
-    UNREAD(MR.strings.yomu_smart_unread),
-    NEW_THIS_WEEK(MR.strings.yomu_smart_new_this_week),
-    RECENTLY_ADDED(MR.strings.yomu_smart_recently_added),
-    ALMOST_CAUGHT_UP(MR.strings.yomu_smart_almost_caught_up),
-    READY_OFFLINE(MR.strings.yomu_smart_ready_offline),
-    FORGOTTEN(MR.strings.yomu_smart_forgotten),
-    COMPLETED(MR.strings.yomu_smart_completed),
+internal fun LibraryItem.toSmartShelfEntry(): SmartShelfEntry {
+    val lib = libraryManga
+    return SmartShelfEntry(
+        id = id,
+        totalChapters = lib.totalChapters,
+        readCount = lib.readCount,
+        downloadCount = downloadCount,
+        isLocal = isLocal,
+        publicationStatus = lib.manga.status.toInt(),
+        favoriteAt = lib.manga.favoriteAt,
+        latestUpload = lib.latestUpload,
+        chapterFetchedAt = lib.chapterFetchedAt,
+        lastRead = lib.lastRead,
+        hasNextReadableChapterDownloaded = isLocal || (unreadCount > 0L && downloadCount > 0),
+    )
 }
 
-fun List<LibraryItem>.filterBySmartShelf(shelf: YomuSmartShelf): List<LibraryItem> {
-    if (shelf == YomuSmartShelf.ALL) return this
-    val now = Clock.System.now()
-    val weekAgo = now - 7.days
-    val twoWeeksAgo = now - 14.days
-    val thirtyDaysAgo = now - 30.days
-    return when (shelf) {
-        YomuSmartShelf.ALL -> this
-        YomuSmartShelf.CURRENTLY_READING -> filter {
-            it.libraryManga.hasStarted && it.libraryManga.unreadCount > 0
-        }
-        YomuSmartShelf.UNREAD -> filter { it.libraryManga.unreadCount > 0 }
-        YomuSmartShelf.NEW_THIS_WEEK -> filter {
-            val latest = it.libraryManga.latestUpload ?: it.libraryManga.chapterFetchedAt
-            latest != null && latest >= weekAgo
-        }
-        YomuSmartShelf.RECENTLY_ADDED -> filter {
-            val favAt = it.libraryManga.manga.favoriteAt
-            favAt != null && favAt >= twoWeeksAgo
-        }
-        YomuSmartShelf.ALMOST_CAUGHT_UP -> filter {
-            it.libraryManga.hasStarted && it.libraryManga.unreadCount in 1..3
-        }
-        YomuSmartShelf.READY_OFFLINE -> filter {
-            it.isLocal || it.downloadCount > 0
-        }
-        YomuSmartShelf.FORGOTTEN -> filter {
-            val last = it.libraryManga.lastRead
-            last != null && last < thirtyDaysAgo && it.libraryManga.unreadCount > 0
-        }
-        YomuSmartShelf.COMPLETED -> filter {
-            it.libraryManga.manga.status.toInt() == SManga.COMPLETED ||
-                (it.libraryManga.totalChapters > 0 && it.libraryManga.unreadCount == 0L)
-        }
-    }
+internal fun List<LibraryItem>.classifySmartShelves(): SmartShelfSnapshot<LibraryItem> {
+    return YomuSmartShelfClassifier.classify(this) { it.toSmartShelfEntry() }
 }
 
 @Composable
 internal fun SmartShelvesChipRow(
     selectedShelf: YomuSmartShelf,
-    allItems: List<LibraryItem>,
+    snapshot: SmartShelfSnapshot<LibraryItem>,
     onSelectShelf: (YomuSmartShelf) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shelfCounts = remember(allItems) {
-        YomuSmartShelf.entries.associateWith { shelf ->
-            allItems.filterBySmartShelf(shelf).size
-        }
-    }
     LazyRow(
         modifier = modifier
             .fillMaxWidth()
@@ -125,7 +91,7 @@ internal fun SmartShelvesChipRow(
             items = YomuSmartShelf.entries,
             key = { "smart_${it.name}" },
         ) { shelf ->
-            val count = shelfCounts[shelf] ?: 0
+            val count = snapshot.countFor(shelf)
             if (shelf == YomuSmartShelf.ALL || count > 0 || shelf == selectedShelf) {
                 YomuPillChip(
                     label = stringResource(shelf.titleRes),

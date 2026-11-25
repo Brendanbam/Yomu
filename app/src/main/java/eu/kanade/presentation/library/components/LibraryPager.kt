@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.domain.yomu.YomuSmartShelf
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
@@ -72,9 +73,16 @@ fun LibraryPager(
         }
 
         var selectedSmartShelf by rememberSaveable(category.id) { mutableStateOf(YomuSmartShelf.ALL) }
-        val items = remember(rawItems, selectedSmartShelf, style.smartShelvesEnabled) {
+        val smartShelfSnapshot = remember(rawItems, style.smartShelvesEnabled) {
             if (style.smartShelvesEnabled) {
-                rawItems.filterBySmartShelf(selectedSmartShelf)
+                rawItems.classifySmartShelves()
+            } else {
+                null
+            }
+        }
+        val items = remember(rawItems, smartShelfSnapshot, selectedSmartShelf, style.smartShelvesEnabled) {
+            if (style.smartShelvesEnabled && smartShelfSnapshot != null) {
+                smartShelfSnapshot.itemsFor(selectedSmartShelf)
             } else {
                 rawItems
             }
@@ -94,10 +102,10 @@ fun LibraryPager(
         val onLongClickMangaAction: (LibraryManga) -> Unit = { onLongClickManga(category, it) }
 
         Column(modifier = Modifier.fillMaxSize()) {
-            if (style.smartShelvesEnabled) {
+            if (style.smartShelvesEnabled && smartShelfSnapshot != null) {
                 SmartShelvesChipRow(
                     selectedShelf = selectedSmartShelf,
-                    allItems = rawItems,
+                    snapshot = smartShelfSnapshot,
                     onSelectShelf = { selectedSmartShelf = it },
                 )
             }

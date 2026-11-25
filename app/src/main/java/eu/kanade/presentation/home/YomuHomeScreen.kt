@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +36,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -48,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -58,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import eu.kanade.domain.ui.model.YomuHomeSection
+import eu.kanade.domain.yomu.YomuContinueReadingState
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.yomu.LocalYomuStyle
 import eu.kanade.presentation.theme.yomu.YomuBookshelfTier
@@ -77,21 +82,27 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Label
 import mihon.icons.materialsymbols.rounded.ArrowDownward
 import mihon.icons.materialsymbols.rounded.ArrowUpward
+import mihon.icons.materialsymbols.rounded.Book
 import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.CloudOff
+import mihon.icons.materialsymbols.rounded.CollectionsBookmark
+import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.Error
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.QueryStats
+import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import mihon.presentation.core.util.isTabletUi
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
-import kotlin.math.roundToInt
 
 @Composable
 fun YomuHomeScreen(
@@ -108,7 +119,9 @@ fun YomuHomeScreen(
     onClickStats: () -> Unit,
     onClickRestoreBackup: () -> Unit,
     onClickSource: (Long) -> Unit,
+    onRetry: () -> Unit,
     onUpdateSectionsOrder: (List<YomuHomeSection>) -> Unit,
+    onResetSectionsOrder: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
     val isTablet = isTabletUi()
@@ -162,6 +175,16 @@ fun YomuHomeScreen(
     ) { contentPadding ->
         when {
             state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
+            state.isFatalError -> YomuHomeErrorState(
+                modifier = Modifier.padding(contentPadding),
+                detail = state.libraryError ?: state.historyError,
+                onRetry = onRetry,
+            )
+            state.areAllSectionsHidden -> YomuHomeAllSectionsHidden(
+                modifier = Modifier.padding(contentPadding),
+                onCustomize = { showCustomizeSheet = true },
+                onResetLayout = onResetSectionsOrder,
+            )
             state.isEmpty -> YomuHomeEmptySanctuary(
                 modifier = Modifier.padding(contentPadding),
                 onClickBrowse = onClickBrowse,
@@ -177,6 +200,15 @@ fun YomuHomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    if (state.hasLibraryError) {
+                        item(key = "yomu_home_library_error") {
+                            InlineSectionErrorBanner(
+                                sectionName = stringResource(MR.strings.label_library),
+                                onRetry = onRetry,
+                            )
+                        }
+                    }
+
                     state.sectionsOrder.forEach { section ->
                         when (section) {
                             YomuHomeSection.HERO_BANNER -> {
@@ -196,26 +228,44 @@ fun YomuHomeScreen(
                                 }
                             }
                             YomuHomeSection.CONTINUE_READING -> {
-                                val item = state.continueReading
-                                if (item != null) {
-                                    item(key = "yomu_home_continue") {
-                                        Column {
-                                            YomuSectionHeader(
-                                                title = stringResource(MR.strings.yomu_home_continue_reading),
-                                                actionLabel = stringResource(MR.strings.yomu_home_view_all),
-                                                onActionClick = onClickHistory,
-                                            )
-                                            ContinueReadingCard(
-                                                item = item,
-                                                onClickCard = { onClickManga(item.mangaId) },
-                                                onClickResume = { onClickResume(item.mangaId, item.chapterId) },
-                                            )
+                                if (state.hasHistoryError) {
+                                    item(key = "yomu_home_continue_error") {
+                                        InlineSectionErrorBanner(
+                                            sectionName = stringResource(MR.strings.yomu_home_continue_reading),
+                                            onRetry = onRetry,
+                                        )
+                                    }
+                                } else {
+                                    val item = state.continueReading
+                                    if (item != null) {
+                                        item(key = "yomu_home_continue") {
+                                            Column {
+                                                YomuSectionHeader(
+                                                    title = stringResource(MR.strings.yomu_home_continue_reading),
+                                                    actionLabel = stringResource(MR.strings.yomu_home_view_all),
+                                                    onActionClick = onClickHistory,
+                                                )
+                                                ContinueReadingCard(
+                                                    item = item,
+                                                    onClickCard = { onClickManga(item.mangaId) },
+                                                    onClickResume = {
+                                                        onClickResume(item.mangaId, item.targetChapterId)
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                             YomuHomeSection.RECENTLY_UPDATED -> {
-                                if (state.recentlyUpdated.isNotEmpty()) {
+                                if (state.hasUpdatesError) {
+                                    item(key = "yomu_home_updates_error") {
+                                        InlineSectionErrorBanner(
+                                            sectionName = stringResource(MR.strings.yomu_home_recently_updated),
+                                            onRetry = onRetry,
+                                        )
+                                    }
+                                } else if (state.recentlyUpdated.isNotEmpty()) {
                                     item(key = "yomu_home_updated") {
                                         Column {
                                             YomuSectionHeader(
@@ -303,6 +353,18 @@ fun YomuHomeScreen(
                                     }
                                 }
                             }
+                            YomuHomeSection.READING_STATS -> {
+                                if (state.stats.libraryCount > 0 || state.stats.totalChaptersRead > 0L) {
+                                    item(key = "yomu_home_reading_stats") {
+                                        YomuReadingStatsSection(
+                                            stats = state.stats,
+                                            onClickStats = onClickStats,
+                                            onClickLibrary = onClickLibrary,
+                                            onClickDownloads = onClickDownloads,
+                                        )
+                                    }
+                                }
+                            }
                             YomuHomeSection.QUICK_ACCESS -> {
                                 item(key = "yomu_home_quick_access") {
                                     Column(
@@ -311,14 +373,12 @@ fun YomuHomeScreen(
                                             .padding(horizontal = YomuSpacing.lg),
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
-                                        // Signature History shortcut bar matching Primary Home reference
                                         YomuShortcutBar(
                                             title = stringResource(MR.strings.history),
                                             icon = MaterialSymbols.Rounded.Schedule,
                                             onClick = onClickHistory,
                                         )
 
-                                        // Secondary quick access tiles (Downloads, Shelf Manager, Statistics)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -347,7 +407,6 @@ fun YomuHomeScreen(
                                             )
                                         }
 
-                                        // Pinned Sources quick strip when available
                                         if (state.pinnedSources.isNotEmpty()) {
                                             LazyRow(
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -407,6 +466,10 @@ fun YomuHomeScreen(
                 onUpdateSectionsOrder(it)
                 showCustomizeSheet = false
             },
+            onReset = {
+                onResetSectionsOrder()
+                showCustomizeSheet = false
+            },
         )
     }
 }
@@ -421,7 +484,7 @@ private fun YomuCinematicHeroBanner(
     onClick: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
-    val bannerHeight = if (isTablet) 196.dp else 148.dp
+    val bannerHeight = if (isTablet) 196.dp else 156.dp
 
     Box(
         modifier = Modifier
@@ -433,22 +496,22 @@ private fun YomuCinematicHeroBanner(
             .yomuFocusHighlight(YomuShapes.heroBanner)
             .clickable(role = Role.Button, onClick = onClick),
     ) {
+        // Layered atmospheric backdrop + clean framed cover inset so artwork never looks awkwardly stretched
         AsyncImage(
             model = cover,
-            contentDescription = title,
+            contentDescription = null,
             contentScale = ContentScale.Crop,
-            alignment = Alignment.TopCenter,
+            alignment = Alignment.Center,
             modifier = Modifier.fillMaxSize(),
         )
-        // Warm nocturnal lantern vignette + espresso fade
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0f to Color(0xD8100D0B),
-                        0.55f to Color(0x70100D0B),
-                        1f to Color(0x40100D0B),
+                        0f to Color(0xEB100D0B),
+                        0.58f to Color(0xBD100D0B),
+                        1f to Color(0x70100D0B),
                     ),
                 ),
         )
@@ -457,60 +520,112 @@ private fun YomuCinematicHeroBanner(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to style.shelfPalette.lanternGlow.copy(alpha = 0.08f * style.lightingIntensity),
-                        0.6f to Color.Transparent,
-                        1f to Color(0xE6100D0B),
+                        0f to style.shelfPalette.lanternGlow.copy(alpha = 0.10f * style.lightingIntensity),
+                        0.55f to Color.Transparent,
+                        1f to Color(0xE8100D0B),
                     ),
                 ),
         )
-        Column(
+        Row(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = stringResource(MR.strings.yomu_tagline).uppercase(),
-                style = MaterialTheme.typography.labelSmall.copy(
-                    letterSpacing = 1.8.sp,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                color = style.shelfPalette.goldAccent,
-            )
-            if (!title.isNullOrBlank()) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        shadow = Shadow(Color.Black, Offset(0f, 1.5f), 5f),
+                    text = stringResource(MR.strings.yomu_tagline).uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 1.8.sp,
+                        fontWeight = FontWeight.SemiBold,
                     ),
-                    color = YomuColors.WarmIvory,
+                    color = style.shelfPalette.goldAccent,
+                )
+                if (!title.isNullOrBlank()) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            shadow = Shadow(Color.Black, Offset(0f, 1.5f), 5f),
+                        ),
+                        color = YomuColors.WarmIvory,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = stringResource(MR.strings.yomu_home_hero_summary, libraryCount, chaptersRead),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = YomuColors.SecondaryText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = "$libraryCount volumes on shelf  ·  $chaptersRead chapters read",
-                style = MaterialTheme.typography.bodySmall,
-                color = YomuColors.SecondaryText,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(MangaCover.Book.ratio)
+                    .clip(RoundedCornerShape(4.dp))
+                    .border(1.dp, style.shelfPalette.goldAccent.copy(alpha = 0.45f), RoundedCornerShape(4.dp)),
+            ) {
+                AsyncImage(
+                    model = cover,
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ContinueReadingCard(
-    item: YomuHomeViewModel.ContinueReadingItem,
+    item: YomuContinueReadingState,
     onClickCard: () -> Unit,
     onClickResume: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
+    val progressTarget = item.seriesProgressFraction
     val animatedProgress by animateFloatAsState(
-        targetValue = item.progressFraction.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = if (style.reducedMotion) 0 else 450),
-        label = "continueProgress",
+        targetValue = (progressTarget ?: 0f).coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = if (style.reducedMotion) 0 else 400),
+        label = "continueSeriesProgress",
     )
-    val percent = (item.progressFraction * 100).roundToInt()
+
+    val positionLine = buildList {
+        add(item.targetChapterLabel)
+        if (item.currentPageNumber != null) {
+            add(stringResource(MR.strings.yomu_home_page_position, item.currentPageNumber))
+        }
+        if (item.chapterCompletionPercent != null) {
+            add("${item.chapterCompletionPercent}%")
+        }
+    }.joinToString(" · ")
+
+    val seriesSummary = when {
+        item.isCaughtUp -> stringResource(MR.strings.yomu_home_caught_up)
+        item.totalChaptersCount > 0L && item.unreadChaptersCount > 0L -> {
+            val readProgress = stringResource(
+                MR.strings.yomu_home_series_progress,
+                item.readChaptersCount,
+                item.totalChaptersCount,
+            )
+            val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, item.unreadChaptersCount)
+            "$readProgress · $unreadLabel"
+        }
+        item.totalChaptersCount > 0L -> stringResource(
+            MR.strings.yomu_home_series_progress,
+            item.readChaptersCount,
+            item.totalChaptersCount,
+        )
+        else -> null
+    }
 
     YomuSurfaceCard(
         modifier = Modifier
@@ -525,13 +640,12 @@ private fun ContinueReadingCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Physical volume cover thumbnail
             Box(
                 modifier = Modifier
-                    .width(64.dp)
+                    .width(66.dp)
                     .aspectRatio(MangaCover.Book.ratio)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(4.dp))
+                    .border(1.dp, style.shelfPalette.subtleBorder, RoundedCornerShape(4.dp)),
             ) {
                 AsyncImage(
                     model = item.coverData,
@@ -545,7 +659,7 @@ private fun ContinueReadingCard(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     text = item.title,
@@ -554,44 +668,76 @@ private fun ContinueReadingCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val posDetail = buildString {
-                    append(item.chapterLabel)
-                    if (item.lastPageRead > 0 && !item.isChapterRead) {
-                        append(" · Page ${item.lastPageRead + 1}")
-                    }
-                    if (percent > 0) {
-                        append(" · $percent%")
-                    }
-                }
                 Text(
-                    text = posDetail,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = positionLine,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                // Amethyst progress track (matches 01_Home.png)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(YomuShapes.pill)
-                        .background(style.shelfPalette.elevatedSurface),
-                ) {
+                if (seriesSummary != null) {
+                    Text(
+                        text = seriesSummary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                // Truthful status badges (Offline / Source unavailable / Not in library)
+                if (item.isTargetChapterDownloaded || !item.isSourceAvailable || !item.isInLibrary) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (item.isTargetChapterDownloaded) {
+                            ContinueStatusChip(
+                                label = stringResource(MR.strings.yomu_home_offline_ready),
+                                icon = MaterialSymbols.Rounded.Check,
+                                tint = style.shelfPalette.sageAccent,
+                            )
+                        }
+                        if (!item.isSourceAvailable && !item.isTargetChapterDownloaded) {
+                            ContinueStatusChip(
+                                label = stringResource(MR.strings.yomu_home_source_unavailable),
+                                icon = MaterialSymbols.Rounded.CloudOff,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        if (!item.isInLibrary) {
+                            ContinueStatusChip(
+                                label = stringResource(MR.strings.yomu_home_not_in_library),
+                                icon = MaterialSymbols.Rounded.Book,
+                                tint = style.shelfPalette.goldAccent,
+                            )
+                        }
+                    }
+                }
+
+                // Only show a filled progress track when genuine series progress exists (> 0)
+                if (progressTarget != null && progressTarget > 0f) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(animatedProgress.coerceAtLeast(0.06f))
+                            .fillMaxWidth()
+                            .height(5.dp)
                             .clip(YomuShapes.pill)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
+                            .background(style.shelfPalette.elevatedSurface),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(animatedProgress)
+                                .clip(YomuShapes.pill)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Prominent Amethyst Play/Resume circular control (matches 01_Home.png)
             Surface(
                 onClick = onClickResume,
                 shape = CircleShape,
@@ -604,7 +750,13 @@ private fun ContinueReadingCard(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
-                        contentDescription = stringResource(MR.strings.yomu_home_resume_reading),
+                        contentDescription = stringResource(
+                            if (item.isPartiallyRead || item.readChaptersCount > 0L) {
+                                MR.strings.yomu_home_resume_reading
+                            } else {
+                                MR.strings.yomu_home_start_reading
+                            },
+                        ),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(26.dp),
                     )
@@ -615,12 +767,294 @@ private fun ContinueReadingCard(
 }
 
 @Composable
+private fun ContinueStatusChip(
+    label: String,
+    icon: ImageVector,
+    tint: Color,
+) {
+    Row(
+        modifier = Modifier
+            .clip(YomuShapes.pill)
+            .background(tint.copy(alpha = 0.14f))
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(11.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+            color = tint,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun YomuReadingStatsSection(
+    stats: YomuHomeViewModel.ReadingStats,
+    onClickStats: () -> Unit,
+    onClickLibrary: () -> Unit,
+    onClickDownloads: () -> Unit,
+) {
+    val style = LocalYomuStyle.current
+    Column {
+        YomuSectionHeader(
+            title = stringResource(MR.strings.yomu_home_section_stats),
+            actionLabel = stringResource(MR.strings.yomu_home_view_all),
+            onActionClick = onClickStats,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = YomuSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatMetricCard(
+                value = stats.libraryCount.toString(),
+                label = stringResource(MR.strings.yomu_home_stat_volumes),
+                icon = MaterialSymbols.Rounded.CollectionsBookmark,
+                tint = style.shelfPalette.goldAccent,
+                onClick = onClickLibrary,
+                modifier = Modifier.weight(1f),
+            )
+            StatMetricCard(
+                value = stats.currentlyReadingCount.toString(),
+                label = stringResource(MR.strings.yomu_home_stat_reading),
+                icon = MaterialSymbols.Rounded.Book,
+                tint = MaterialTheme.colorScheme.primary,
+                onClick = onClickLibrary,
+                modifier = Modifier.weight(1f),
+            )
+            StatMetricCard(
+                value = stats.totalChaptersRead.toString(),
+                label = stringResource(MR.strings.yomu_home_stat_chapters_read),
+                icon = MaterialSymbols.Rounded.DoneAll,
+                tint = style.shelfPalette.goldAccent,
+                onClick = onClickStats,
+                modifier = Modifier.weight(1f),
+            )
+            StatMetricCard(
+                value = stats.offlineReadyCount.toString(),
+                label = stringResource(MR.strings.yomu_home_stat_offline),
+                icon = MaterialSymbols.Rounded.Download,
+                tint = style.shelfPalette.sageAccent,
+                onClick = onClickDownloads,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatMetricCard(
+    value: String,
+    label: String,
+    icon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    YomuSurfaceCard(
+        modifier = modifier,
+        onClick = onClick,
+        shape = YomuShapes.card,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun InlineSectionErrorBanner(
+    sectionName: String,
+    onRetry: () -> Unit,
+) {
+    val style = LocalYomuStyle.current
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = YomuSpacing.lg),
+        shape = YomuShapes.card,
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = MaterialSymbols.Rounded.Error,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = stringResource(MR.strings.yomu_home_section_error, sectionName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onRetry) {
+                Text(
+                    text = stringResource(MR.strings.yomu_home_retry),
+                    color = style.shelfPalette.goldAccent,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun YomuHomeErrorState(
+    detail: String?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = MaterialSymbols.Rounded.Error,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(56.dp),
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = stringResource(MR.strings.yomu_home_error_title),
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = YomuSerifFontFamily,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = detail?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.yomu_home_error_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        YomuPrimaryButton(
+            text = stringResource(MR.strings.yomu_home_retry),
+            icon = MaterialSymbols.Rounded.Refresh,
+            onClick = onRetry,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun YomuHomeAllSectionsHidden(
+    onCustomize: () -> Unit,
+    onResetLayout: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val style = LocalYomuStyle.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = MaterialSymbols.RoundedFilled.VisibilityOff,
+            contentDescription = null,
+            tint = style.shelfPalette.goldAccent,
+            modifier = Modifier.size(56.dp),
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = stringResource(MR.strings.yomu_home_all_hidden_title),
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = YomuSerifFontFamily,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = style.shelfPalette.goldAccent,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(MR.strings.yomu_home_all_hidden_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        YomuPrimaryButton(
+            text = stringResource(MR.strings.yomu_home_customize),
+            icon = MaterialSymbols.Rounded.FilterList,
+            onClick = onCustomize,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = onResetLayout,
+            shape = YomuShapes.button,
+            border = BorderStroke(1.dp, style.shelfPalette.subtleBorder),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = MaterialSymbols.Rounded.Refresh,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text = stringResource(MR.strings.yomu_home_reset_layout))
+        }
+    }
+}
+
+@Composable
 private fun RecentlyUpdatedBookCard(
     item: YomuHomeViewModel.RecentUpdateItem,
     onClick: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(4.dp)
 
     Box(
         modifier = Modifier
@@ -649,8 +1083,7 @@ private fun RecentlyUpdatedBookCard(
                     ),
                 ),
         )
-        // Amethyst unread badge in top-right (matches 01_Home.png)
-        if (!item.update.read || item.unreadCount > 0) {
+        if (!item.update.read) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -695,7 +1128,7 @@ private fun RecentlyUpdatedBookCard(
         if (item.isDownloaded) {
             Icon(
                 imageVector = MaterialSymbols.Rounded.Check,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.yomu_home_offline_ready),
                 tint = style.shelfPalette.sageAccent,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -752,7 +1185,7 @@ private fun HomeWoodenShelfStrip(
 @Composable
 private fun QuickAccessTile(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -896,7 +1329,9 @@ private fun HomeCustomizeBottomSheet(
     activeOrder: List<YomuHomeSection>,
     onDismiss: () -> Unit,
     onSave: (List<YomuHomeSection>) -> Unit,
+    onReset: () -> Unit,
 ) {
+    val style = LocalYomuStyle.current
     var orderedAll by remember(activeOrder) {
         val missing = YomuHomeSection.entries.filterNot { it in activeOrder }
         mutableStateOf(activeOrder + missing)
@@ -915,11 +1350,23 @@ private fun HomeCustomizeBottomSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                text = stringResource(MR.strings.yomu_home_customize),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(MR.strings.yomu_home_customize),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onReset) {
+                    Text(
+                        text = stringResource(MR.strings.yomu_home_reset_layout),
+                        color = style.shelfPalette.goldAccent,
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             orderedAll.forEachIndexed { idx, section ->
                 val isChecked = section in enabledSet
@@ -928,7 +1375,7 @@ private fun HomeCustomizeBottomSheet(
                         .fillMaxWidth()
                         .clip(YomuShapes.chapterRow)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
@@ -952,7 +1399,10 @@ private fun HomeCustomizeBottomSheet(
                             orderedAll = list
                         },
                     ) {
-                        Icon(MaterialSymbols.Rounded.ArrowUpward, contentDescription = null)
+                        Icon(
+                            imageVector = MaterialSymbols.Rounded.ArrowUpward,
+                            contentDescription = stringResource(MR.strings.yomu_home_move_up),
+                        )
                     }
                     IconButton(
                         enabled = idx < orderedAll.lastIndex,
@@ -964,7 +1414,10 @@ private fun HomeCustomizeBottomSheet(
                             orderedAll = list
                         },
                     ) {
-                        Icon(MaterialSymbols.Rounded.ArrowDownward, contentDescription = null)
+                        Icon(
+                            imageVector = MaterialSymbols.Rounded.ArrowDownward,
+                            contentDescription = stringResource(MR.strings.yomu_home_move_down),
+                        )
                     }
                 }
             }

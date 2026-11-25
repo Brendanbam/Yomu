@@ -1164,10 +1164,56 @@
     <string name="yomu_smart_new_this_week">New This Week</string>
     <string name="yomu_smart_recently_added">Recently Added</string>
     <string name="yomu_smart_almost_caught_up">Almost Caught Up</string>
+    <string name="yomu_smart_caught_up">Caught Up</string>
+    <string name="yomu_smart_finished_reading">Finished Reading</string>
+    <string name="yomu_smart_completed_publication">Completed Series</string>
     <string name="yomu_smart_forgotten">Forgotten Stories</string>
     <string name="yomu_smart_completed">Completed</string>
     <string name="yomu_smart_ready_offline">Ready Offline</string>
+    <string name="yomu_smart_fully_downloaded">Fully Downloaded</string>
     <string name="yomu_smart_unread">Unread</string>
+
+    <!-- Yomu Home 2.0 States & Stats -->
+    <string name="yomu_home_section_stats">Reading Overview</string>
+    <string name="yomu_home_reset_layout">Reset Layout</string>
+    <string name="yomu_home_all_hidden_title">All Home Sections Hidden</string>
+    <string name="yomu_home_all_hidden_subtitle">Customize your sanctuary or restore the default layout to bring your shelves back.</string>
+    <string name="yomu_home_error_title">Couldn\'t Load Sanctuary</string>
+    <string name="yomu_home_error_subtitle">A storage or data error interrupted loading your library. You can retry without losing data.</string>
+    <string name="yomu_home_section_error">Couldn\'t load %1$s</string>
+    <string name="yomu_home_retry">Retry</string>
+    <string name="yomu_home_hero_summary">%1$d volumes · %2$d chapters read</string>
+    <string name="yomu_home_page_position">Page %1$d</string>
+    <string name="yomu_home_unread_remaining">%1$d unread</string>
+    <string name="yomu_home_caught_up">Caught up</string>
+    <string name="yomu_home_series_progress">%1$d / %2$d chapters</string>
+    <string name="yomu_home_offline_ready">Offline ready</string>
+    <string name="yomu_home_source_unavailable">Source unavailable</string>
+    <string name="yomu_home_not_in_library">Not in library</string>
+    <string name="yomu_home_stat_volumes">Volumes</string>
+    <string name="yomu_home_stat_reading">Reading</string>
+    <string name="yomu_home_stat_chapters_read">Chapters Read</string>
+    <string name="yomu_home_stat_offline">Offline Ready</string>
+    <string name="yomu_home_move_up">Move up</string>
+    <string name="yomu_home_move_down">Move down</string>
+
+    <!-- Yomu 2.0 Customization, Quick Actions & Split-Pane -->
+    <string name="yomu_pref_reset_defaults">Reset Yomu defaults</string>
+    <string name="yomu_pref_reset_defaults_summary">Restore Midnight Walnut palette, bookshelf lighting, and layout defaults</string>
+    <string name="yomu_pref_preview_shelf">Live bookshelf preview</string>
+    <string name="yomu_pref_tablet_split_pane">Split-pane library on tablets</string>
+    <string name="yomu_pref_tablet_split_pane_summary">Show series details beside the bookshelf on wide screens</string>
+    <string name="yomu_quick_actions">Quick actions</string>
+    <string name="yomu_quick_view_details">View details</string>
+    <string name="yomu_quick_download_next">Download next unread</string>
+    <string name="yomu_quick_mark_read">Mark all read</string>
+    <string name="yomu_quick_mark_unread">Mark all unread</string>
+    <string name="yomu_details_download_options">Download options</string>
+    <string name="yomu_details_open_full">Open full screen</string>
+    <string name="yomu_details_select_book_prompt">Select a volume from the bookshelf to inspect its chapters and details.</string>
+    <string name="yomu_tracking_active_count">%1$d active trackers</string>
+    <string name="yomu_tracking_none_active">No trackers linked yet</string>
+    <string name="yomu_tracking_manage">Manage Trackers</string>
 
     <!-- Yomu Manga Details Tabs -->
     <string name="yomu_tab_chapters">Chapters</string>

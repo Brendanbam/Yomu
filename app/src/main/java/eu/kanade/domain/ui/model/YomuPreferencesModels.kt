@@ -26,15 +26,30 @@ enum class YomuHomeSection(val id: String, val titleRes: StringResource) {
     CURRENTLY_READING("reading", MR.strings.yomu_home_currently_reading),
     REDISCOVER("rediscover", MR.strings.yomu_home_rediscover),
     OFFLINE_COLLECTION("offline", MR.strings.yomu_home_offline_collection),
+    READING_STATS("stats", MR.strings.yomu_home_section_stats),
     QUICK_ACCESS("quick", MR.strings.yomu_home_quick_access),
     ;
 
     companion object {
+        const val EMPTY_SENTINEL: String = "NONE"
+
         val defaultOrder: String = entries.joinToString(",") { it.id }
 
+        fun serializeOrder(sections: List<YomuHomeSection>): String {
+            if (sections.isEmpty()) return EMPTY_SENTINEL
+            return sections.distinct().joinToString(",") { it.id }
+        }
+
         fun parseOrder(serialized: String): List<YomuHomeSection> {
+            val trimmed = serialized.trim()
+            if (trimmed.equals(EMPTY_SENTINEL, ignoreCase = true)) {
+                return emptyList()
+            }
+            if (trimmed.isEmpty()) {
+                return entries
+            }
             val map = entries.associateBy { it.id }
-            val parsed = serialized
+            val parsed = trimmed
                 .split(",")
                 .mapNotNull { map[it.trim()] }
                 .distinct()
