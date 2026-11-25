@@ -82,14 +82,17 @@ if [ -n "$UPGRADE_FROM" ]; then
   adb install -g "$UPGRADE_FROM"
   adb logcat -c
   launch
+  python3 .github/scripts/yomu-library-smoke.py --prepare-upgrade
   first_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
   test -n "$first_install_time"
   adb install -r -g "$APK"
   launch
   updated_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
   test "$first_install_time" = "$updated_install_time"
+  python3 .github/scripts/yomu-library-smoke.py --verify-upgrade
+  assert_running
   adb exec-out screencap -p > "$OUT/01-signed-upgrade.png"
-  echo "Signed upgrade installed in place and launched."
+  echo "Signed upgrade preserved the restored library and launched."
   exit 0
 fi
 

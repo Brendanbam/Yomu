@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,6 +98,7 @@ fun YomuPillChip(
     leadingIcon: ImageVector? = null,
 ) {
     val style = LocalYomuStyle.current
+    val isSelected = selected
     val text = if (count != null) "$label ($count)" else label
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.primary
@@ -116,6 +119,7 @@ fun YomuPillChip(
     Surface(
         modifier = modifier
             .heightIn(min = 38.dp)
+            .semantics { this.selected = isSelected }
             .yomuFocusHighlight(YomuShapes.pill),
         shape = YomuShapes.pill,
         color = containerColor,
@@ -193,6 +197,7 @@ fun YomuSectionHeader(
         if (actionLabel != null && onActionClick != null) {
             Row(
                 modifier = Modifier
+                    .yomuFocusHighlight(YomuShapes.pill)
                     .clip(YomuShapes.pill)
                     .clickable(role = Role.Button, onClick = onActionClick)
                     .padding(horizontal = 8.dp, vertical = 4.dp),

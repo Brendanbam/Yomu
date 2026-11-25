@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -520,6 +521,7 @@ fun YomuPhysicalMangaVolume(
             .bringIntoViewRequester(bringIntoViewRequester)
             .semantics {
                 contentDescription = accessibilityLabel
+                selected = isSelected
                 if (isInspected) stateDescription = inspectedLabel
             }
             .combinedClickable(
@@ -912,6 +914,7 @@ fun YomuBookSpineVolume(
             .bringIntoViewRequester(bringIntoViewRequester)
             .semantics {
                 contentDescription = accessibilityLabel
+                selected = isSelected
                 if (isInspected) stateDescription = inspectedLabel
             }
             .shadow(if (isElevated) 10.dp else 4.dp, shape)
@@ -1016,7 +1019,7 @@ fun YomuBookSpineVolume(
             IconButton(
                 onClick = onReadNext,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
-                    .size(40.dp).yomuFocusHighlight(CircleShape),
+                    .size(48.dp).yomuFocusHighlight(CircleShape),
             ) {
                 Icon(
                     imageVector = MaterialSymbols.RoundedFilled.PlayArrow,

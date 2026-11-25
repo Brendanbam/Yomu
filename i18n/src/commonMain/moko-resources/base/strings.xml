@@ -1231,6 +1231,8 @@
     <string name="yomu_browse_local_manga">Local Manga</string>
     <string name="yomu_unified_search">Search library and sources</string>
     <string name="yomu_search_library_results">In your library</string>
+    <string name="yomu_search_source_results">In your sources</string>
+    <string name="yomu_download_retry_hint">Download failed. Pause and resume the queue to retry.</string>
     <string name="yomu_shelf_presets">Shelf appearance presets</string>
     <string name="yomu_category_shelf_design">This categoryâ€™s shelf material</string>
     <string name="yomu_inherit_shelf_design">Use app setting</string>

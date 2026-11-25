@@ -68,12 +68,20 @@ fun GlobalSearchScreen(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
-                    GlobalSearchCardRow(
-                        titles = libraryMatches,
-                        getManga = getManga,
-                        onClick = onClickLibraryItem,
-                        onLongClick = onClickLibraryItem,
-                    )
+                    if (libraryMatches.isEmpty()) {
+                        Text(
+                            text = stringResource(MR.strings.no_results_found),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    } else {
+                        GlobalSearchCardRow(
+                            titles = libraryMatches,
+                            getManga = getManga,
+                            onClick = onClickLibraryItem,
+                            onLongClick = onClickLibraryItem,
+                        )
+                    }
                 }
             },
             contentPadding = paddingValues,
@@ -100,6 +108,15 @@ internal fun GlobalSearchContent(
         contentPadding = contentPadding,
     ) {
         if (libraryResults != null) item(key = "library-results") { libraryResults() }
+        if (libraryResults != null && items.isNotEmpty()) {
+            item(key = "source-results-heading") {
+                Text(
+                    text = stringResource(MR.strings.yomu_search_source_results),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
         items.forEach { (source, result) ->
             item(key = source.id) {
                 GlobalSearchResultItem(

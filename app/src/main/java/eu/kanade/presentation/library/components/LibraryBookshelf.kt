@@ -39,6 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -306,7 +311,8 @@ internal fun LibraryBookSpineShelf(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(1)
-        val maxSafeSpines = ((availableWidthDp - 24 + 4) / 52).coerceIn(1, 16)
+        val minimumSpineWidth = (52 * LocalDensity.current.fontScale.coerceAtLeast(1f)).toInt()
+        val maxSafeSpines = ((availableWidthDp - 24 + 4) / minimumSpineWidth).coerceIn(1, 16)
         val spinesPerRow = remember(columns, availableWidthDp, maxSafeSpines) {
             when {
                 columns > 0 -> (columns.coerceAtMost(8) * 2).coerceIn(1, maxSafeSpines)
@@ -420,11 +426,25 @@ internal fun LibraryMinimalGrid(
         ) { libraryItem ->
             val manga = libraryItem.libraryManga.manga
             val isSelected = manga.id in selection
+            val unreadLabel =
+                stringResource(tachiyomi.i18n.MR.strings.yomu_home_unread_remaining, libraryItem.badges.unreadCount)
+            val downloadedLabel =
+                stringResource(tachiyomi.i18n.MR.strings.yomu_downloaded_count, libraryItem.badges.downloadCount)
+            val accessibilityLabel = buildList {
+                add(manga.title)
+                if (libraryItem.badges.unreadCount > 0) add(unreadLabel)
+                if (libraryItem.badges.downloadCount > 0) add(downloadedLabel)
+            }.joinToString(", ")
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .yomuFocusHighlight(shape)
+                    .semantics {
+                        contentDescription = accessibilityLabel
+                        selected = isSelected
+                    }
                     .combinedClickable(
+                        role = Role.Button,
                         onClick = { onClick(libraryItem.libraryManga) },
                         onLongClick = { onLongClick(libraryItem.libraryManga) },
                     ),
@@ -452,7 +472,7 @@ internal fun LibraryMinimalGrid(
                             url = manga.thumbnailUrl,
                             lastModified = manga.coverLastModified,
                         ),
-                        contentDescription = manga.title,
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
