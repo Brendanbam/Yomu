@@ -116,6 +116,7 @@ jobs:
 
       - name: Verify APK metadata, signatures, and prepare release assets
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.meta.outputs.tag }}
           VERSION_NAME: ${{ steps.meta.outputs.version_name }}
         run: |
@@ -124,6 +125,9 @@ jobs:
           AAPT2="${BUILD_TOOLS_DIR}/aapt2"
           APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
 
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION_NAME"
+          VERSION_CODE="$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))"
+          CERTIFICATE=""
           mkdir -p release-assets
           ABIS=(universal arm64-v8a armeabi-v7a x86 x86_64)
           for abi in "${ABIS[@]}"; do
@@ -144,12 +148,52 @@ jobs:
               exit 1
             fi
 
+            if ! grep -Fq "versionCode='$VERSION_CODE'" <<< "$BADGING"; then
+              echo "::error::Unexpected versionCode in $SRC"
+              exit 1
+            fi
+
+            # Inspect the actual native libraries, not just the asset filename.
+            NATIVE_ABIS="$(unzip -Z1 "$SRC" | awk -F/ '$1 == "lib" && NF >= 3 {print $2}' | sort -u)"
+            if [ "$abi" = universal ]; then
+              for expected in arm64-v8a armeabi-v7a x86 x86_64; do
+                grep -Fxq "$expected" <<< "$NATIVE_ABIS" || { echo "::error::Universal APK missing $expected"; exit 1; }
+              done
+            elif [ "$NATIVE_ABIS" != "$abi" ]; then
+              echo "::error::Unexpected native libraries in $SRC: $NATIVE_ABIS"
+              exit 1
+            fi
+
             "$APKSIGNER" verify --verbose "$SRC"
+            DIGEST="$("$APKSIGNER" verify --print-certs "$SRC" | grep '^Signer #1 certificate SHA-256 digest:')"
+            if [ -z "$CERTIFICATE" ]; then
+              CERTIFICATE="$DIGEST"
+            elif [ "$CERTIFICATE" != "$DIGEST" ]; then
+              echo "::error::APK signing certificates differ"
+              exit 1
+            fi
             cp "$SRC" "$DST"
           done
 
+          # Compare the signing identity and installed version code with the latest published stable APK.
+          PREVIOUS_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          if [ "$PREVIOUS_TAG" = "$TAG" ]; then
+            echo "::error::Release $TAG is already published; refusing to replace its assets"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/yomu-previous"
+          gh release download "$PREVIOUS_TAG" --pattern '*-arm64-v8a.apk' --dir "$RUNNER_TEMP/yomu-previous"
+          PREVIOUS_APK="$(find "$RUNNER_TEMP/yomu-previous" -name '*.apk' -print -quit)"
+          PREVIOUS_CERT="$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | grep '^Signer #1 certificate SHA-256 digest:')"
+          PREVIOUS_CODE="$("$AAPT2" dump badging "$PREVIOUS_APK" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p")"
+          if [ "$PREVIOUS_CERT" != "$CERTIFICATE" ] || ! [[ "$PREVIOUS_CODE" =~ ^[0-9]+$ ]] || [ "$VERSION_CODE" -le "$PREVIOUS_CODE" ]; then
+            echo "::error::Release is not an upgrade of the previous signed production APK"
+            exit 1
+          fi
           (cd release-assets && sha256sum yomu-"${TAG}"-*.apk > "yomu-${TAG}-checksums.sha256")
-          rm -f "${RUNNER_TEMP}/yomu-release.jks"
+      - name: Remove release signing material
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/yomu-release.jks"
 
       - name: Publish GitHub Release
         env:
