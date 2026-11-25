@@ -37,7 +37,7 @@ object YomuSpacing {
 }
 
 object YomuShapes {
-    val bookCover = RoundedCornerShape(topStart = 3.dp, topEnd = 6.dp, bottomEnd = 6.dp, bottomStart = 3.dp)
+    val bookCover = RoundedCornerShape(topStart = 2.dp, topEnd = 3.dp, bottomEnd = 3.dp, bottomStart = 2.dp)
     val card = RoundedCornerShape(14.dp)
     val heroBanner = RoundedCornerShape(16.dp)
     val pill = RoundedCornerShape(50)
@@ -179,12 +179,17 @@ data class YomuVisualStyle(
     val decorationIntensity: Float = 0.85f,
     val animationIntensity: Float = 0.80f,
     val reducedMotion: Boolean = false,
+    val systemAnimatorScale: Float = 1f,
     val showShelfTitles: Boolean = true,
     val showShelfProgress: Boolean = true,
     val smartShelvesEnabled: Boolean = true,
 ) {
     val effectiveMotionScale: Float
-        get() = if (reducedMotion) 0f else animationIntensity.coerceIn(0f, 1f)
+        get() = if (reducedMotion || systemAnimatorScale <= 0f) {
+            0f
+        } else {
+            (animationIntensity * systemAnimatorScale).coerceIn(0f, 1f)
+        }
 
     val isOriginalMihon: Boolean
         get() = appTheme == AppTheme.DEFAULT

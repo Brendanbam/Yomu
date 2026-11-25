@@ -4,14 +4,13 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,18 +31,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -51,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -65,198 +62,272 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.manga.components.MangaCover
-import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.sin
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
+private data class CachedGrainStroke(
+    val path: Path,
+    val color: Color,
+    val widthPx: Float,
+)
+
 /**
- * Draws a single realistic wooden shelf plank with angled lit top ledge,
- * specular front bevel, procedural walnut/oak/ebony/cherry wood grain fibers,
- * and a soft deep shadow cast onto the alcove beneath it.
+ * Draws a single realistic wooden shelf plank using [Modifier.drawWithCache] so all
+ * brushes, cathedral grain contours, wood pore lines, and ambient shadows are allocated
+ * once per size/palette change instead of every scroll frame.
  */
 @Composable
 fun YomuWoodShelfPlank(
     rowIndex: Int,
     modifier: Modifier = Modifier,
-    topLedgeHeight: Dp = 10.dp,
-    frontFaceHeight: Dp = 15.dp,
-    underShadowHeight: Dp = 12.dp,
+    topLedgeHeight: Dp = 11.dp,
+    frontFaceHeight: Dp = 16.dp,
+    underShadowHeight: Dp = 13.dp,
 ) {
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
     val lighting = style.lightingIntensity
     val decoration = style.decorationIntensity
     val shadowScale = style.shadowIntensity
-
     val totalHeight = topLedgeHeight + frontFaceHeight + underShadowHeight
 
-    Canvas(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(totalHeight),
-    ) {
-        val w = size.width
-        val topH = topLedgeHeight.toPx()
-        val faceH = frontFaceHeight.toPx()
-        val shadowH = underShadowHeight.toPx()
-        val faceTop = topH
-        val faceBottom = topH + faceH
+            .height(totalHeight)
+            .drawWithCache {
+                val w = size.width
+                val topH = topLedgeHeight.toPx()
+                val faceH = frontFaceHeight.toPx()
+                val shadowH = underShadowHeight.toPx()
+                val faceTop = topH
+                val faceBottom = topH + faceH
 
-        // 1. Angled upper shelf surface catching warm lantern spotlight in the center
-        drawRect(
-            brush = Brush.horizontalGradient(
-                0f to palette.shelfTopBase,
-                0.28f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.55f + 0.35f * lighting),
-                0.5f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.75f + 0.25f * lighting),
-                0.72f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.55f + 0.35f * lighting),
-                1f to palette.shelfTopBase,
-            ),
-            topLeft = Offset(0f, 0f),
-            size = Size(w, topH),
-        )
-
-        // Subtle rear alcove ambient occlusion along the back edge of the top ledge
-        drawRect(
-            brush = Brush.verticalGradient(
-                0f to palette.shelfUnderShadow.copy(alpha = 0.55f * shadowScale),
-                1f to Color.Transparent,
-                startY = 0f,
-                endY = topH * 0.7f,
-            ),
-            topLeft = Offset(0f, 0f),
-            size = Size(w, topH * 0.7f),
-        )
-
-        // Subtle horizontal grain lines on top ledge
-        if (decoration > 0.15f) {
-            val topLines = 3
-            for (i in 0 until topLines) {
-                val y = topH * (0.25f + i * 0.28f)
-                drawLine(
-                    color = palette.shelfGrainDark.copy(alpha = 0.22f * decoration),
-                    start = Offset(0f, y),
-                    end = Offset(w, y),
-                    strokeWidth = 1.dp.toPx(),
+                // 1. Upper perspective shelf ledge lit by overhead Japanese lantern
+                val topLedgeBrush = Brush.horizontalGradient(
+                    0f to palette.shelfTopBase,
+                    0.22f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.45f + 0.35f * lighting),
+                    0.5f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.72f + 0.28f * lighting),
+                    0.78f to lerpColor(palette.shelfTopBase, palette.shelfTopLit, 0.45f + 0.35f * lighting),
+                    1f to palette.shelfTopBase,
                 )
-            }
-        }
-
-        // 2. Front fascia wooden plank
-        drawRect(
-            brush = Brush.verticalGradient(
-                0f to palette.shelfFrontTop,
-                0.65f to lerpColor(palette.shelfFrontTop, palette.shelfFrontBottom, 0.55f),
-                1f to palette.shelfFrontBottom,
-                startY = faceTop,
-                endY = faceBottom,
-            ),
-            topLeft = Offset(0f, faceTop),
-            size = Size(w, faceH),
-        )
-
-        // Center lantern warmth across front edge
-        if (lighting > 0.05f) {
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        palette.lanternGlow.copy(alpha = 0.14f * lighting),
-                        Color.Transparent,
-                    ),
-                    center = Offset(w * 0.5f, faceTop),
-                    radius = w * 0.58f,
-                ),
-                topLeft = Offset(0f, faceTop),
-                size = Size(w, faceH),
-            )
-        }
-
-        // 3. Deterministic organic wood grain streaks & subtle knot curves
-        if (decoration > 0.1f) {
-            val seed = (rowIndex * 7919 + 104729).toFloat()
-            val fiberCount = (5 + (decoration * 5).toInt()).coerceAtMost(10)
-            val segments = 14
-            for (i in 0 until fiberCount) {
-                val path = Path()
-                val baseY = faceTop + faceH * ((i + 0.6f) / (fiberCount + 0.3f))
-                val amp = (1.1f + ((i + rowIndex) % 3) * 0.55f).dp.toPx() * 0.45f
-                val freq = 0.008f + ((i * 3 + rowIndex) % 5) * 0.0025f
-                val phase = seed * 0.013f + i * 1.9f
-                for (s in 0..segments) {
-                    val x = w * (s.toFloat() / segments)
-                    val y = (baseY + sin(x * freq + phase) * amp)
-                        .coerceIn(faceTop + 1f, faceBottom - 1f)
-                    if (s == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                val isLightFiber = (i + rowIndex) % 3 == 0
-                drawPath(
-                    path = path,
-                    color = if (isLightFiber) {
-                        palette.shelfGrainLight.copy(alpha = 0.24f * decoration)
-                    } else {
-                        palette.shelfGrainDark.copy(alpha = 0.34f * decoration)
-                    },
-                    style = Stroke(width = if (isLightFiber) 0.9.dp.toPx() else 1.25.dp.toPx()),
-                )
-            }
-
-            // Subtle wood knot ring placed deterministically off-center
-            val knotX = w * (0.18f + ((abs(rowIndex * 37 + 13) % 64) / 100f))
-            val knotY = faceTop + faceH * (0.38f + ((rowIndex % 3) * 0.14f))
-            drawOval(
-                color = palette.shelfGrainDark.copy(alpha = 0.22f * decoration),
-                topLeft = Offset(knotX - 10.dp.toPx(), knotY - 2.4.dp.toPx()),
-                size = Size(20.dp.toPx(), 4.8.dp.toPx()),
-                style = Stroke(width = 1.dp.toPx()),
-            )
-        }
-
-        // 4. Crisp upper front bevel lip catching overhead light
-        drawLine(
-            brush = Brush.horizontalGradient(
-                0f to palette.shelfBevelHighlight.copy(alpha = 0.25f),
-                0.5f to palette.shelfBevelHighlight.copy(alpha = 0.55f + 0.35f * lighting),
-                1f to palette.shelfBevelHighlight.copy(alpha = 0.25f),
-            ),
-            start = Offset(0f, faceTop + 0.6.dp.toPx()),
-            end = Offset(w, faceTop + 0.6.dp.toPx()),
-            strokeWidth = 1.3.dp.toPx(),
-        )
-
-        // Subtle dark lower lip of front fascia
-        drawLine(
-            color = palette.shelfUnderShadow.copy(alpha = 0.72f),
-            start = Offset(0f, faceBottom - 0.5.dp.toPx()),
-            end = Offset(w, faceBottom - 0.5.dp.toPx()),
-            strokeWidth = 1.dp.toPx(),
-        )
-
-        // 5. Cast drop shadow below the shelf onto the alcove underneath
-        if (shadowScale > 0.05f) {
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0f to palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.32f else 0.78f) * shadowScale),
-                    0.45f to
-                        palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.14f else 0.36f) * shadowScale),
+                val rearAoBrush = Brush.verticalGradient(
+                    0f to palette.shelfUnderShadow.copy(alpha = (if (palette.isLight) 0.28f else 0.62f) * shadowScale),
+                    0.65f to palette.shelfUnderShadow.copy(alpha = 0.14f * shadowScale),
                     1f to Color.Transparent,
-                    startY = faceBottom,
-                    endY = faceBottom + shadowH,
-                ),
-                topLeft = Offset(0f, faceBottom),
-                size = Size(w, shadowH),
-            )
-        }
-    }
+                    startY = 0f,
+                    endY = topH * 0.78f,
+                )
+
+                // 2. Front fascia board base with subtle satin sheen
+                val frontBaseBrush = Brush.verticalGradient(
+                    0f to lerpColor(palette.shelfFrontTop, palette.shelfBevelHighlight, 0.12f),
+                    0.28f to palette.shelfFrontTop,
+                    0.72f to lerpColor(palette.shelfFrontTop, palette.shelfFrontBottom, 0.62f),
+                    1f to palette.shelfFrontBottom,
+                    startY = faceTop,
+                    endY = faceBottom,
+                )
+                val frontLanternBrush = if (lighting > 0.05f) {
+                    Brush.radialGradient(
+                        colors = listOf(
+                            palette.lanternGlow.copy(alpha = (if (palette.isLight) 0.20f else 0.16f) * lighting),
+                            palette.lanternGlow.copy(alpha = 0.04f * lighting),
+                            Color.Transparent,
+                        ),
+                        center = Offset(w * 0.5f, faceTop + faceH * 0.15f),
+                        radius = (w * 0.55f).coerceAtLeast(1f),
+                    )
+                } else {
+                    null
+                }
+                val frontEdgeVignetteBrush = Brush.horizontalGradient(
+                    0f to palette.shelfUnderShadow.copy(alpha = if (palette.isLight) 0.18f else 0.42f),
+                    0.08f to Color.Transparent,
+                    0.92f to Color.Transparent,
+                    1f to palette.shelfUnderShadow.copy(alpha = if (palette.isLight) 0.18f else 0.42f),
+                )
+
+                // 3. Multi-layer organic wood grain (cathedral heartwood curves + fine longitudinal pores)
+                val knotX = w * (0.16f + ((abs(rowIndex * 41 + 17) % 68) / 100f))
+                val knotY = faceTop + faceH * (0.34f + ((abs(rowIndex * 7) % 4) * 0.11f))
+                val grainStrokes = buildList {
+                    if (decoration > 0.1f && w > 0f) {
+                        val seed = (rowIndex * 7919 + 104729).toFloat()
+                        val primaryFibers = (6 + (decoration * 6).toInt()).coerceAtMost(12)
+                        val segments = 22
+                        for (i in 0 until primaryFibers) {
+                            val path = Path()
+                            val norm = (i + 0.5f) / primaryFibers
+                            val baseY = faceTop + faceH * (0.08f + norm * 0.84f)
+                            val slowFreq = 0.0045f + ((i * 5 + rowIndex) % 4) * 0.0014f
+                            val fineFreq = 0.017f + ((i * 3 + rowIndex) % 5) * 0.003f
+                            val phase = seed * 0.011f + i * 2.13f
+                            val drift = (0.7f + ((i + rowIndex) % 3) * 0.35f).dp.toPx()
+
+                            for (s in 0..segments) {
+                                val x = w * (s.toFloat() / segments)
+                                val distToKnot = abs(x - knotX)
+                                val knotRadius = 56.dp.toPx()
+                                // Deflect grain organically around the wood knot like real planed timber
+                                val knotDeflect = if (distToKnot < knotRadius) {
+                                    val t = cos((distToKnot / knotRadius) * (Math.PI / 2.0)).toFloat()
+                                    val sign = if (baseY >= knotY) 1f else -1f
+                                    sign * t * t * 2.8.dp.toPx()
+                                } else {
+                                    0f
+                                }
+                                val wave = sin(x * slowFreq + phase) * drift +
+                                    sin(x * fineFreq + phase * 1.7f) * (drift * 0.28f)
+                                val y = (baseY + wave + knotDeflect)
+                                    .coerceIn(faceTop + 0.8f, faceBottom - 0.8f)
+                                if (s == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                            }
+                            val isHighlight = (i + rowIndex) % 3 == 0
+                            add(
+                                CachedGrainStroke(
+                                    path = path,
+                                    color = if (isHighlight) {
+                                        palette.shelfGrainLight.copy(alpha = 0.22f * decoration)
+                                    } else {
+                                        palette.shelfGrainDark.copy(alpha = 0.34f * decoration)
+                                    },
+                                    widthPx = (if (isHighlight) 0.85f else 1.15f).dp.toPx(),
+                                ),
+                            )
+                        }
+
+                        // Fine top-ledge horizontal grain lines
+                        for (t in 0 until 4) {
+                            val y = topH * (0.20f + t * 0.22f)
+                            val topPath = Path().apply {
+                                moveTo(0f, y)
+                                cubicTo(
+                                    w * 0.33f,
+                                    (y + ((t % 2) * 1.4f - 0.7f).dp.toPx()).coerceIn(1f, topH - 1f),
+                                    w * 0.66f,
+                                    (y - ((t % 2) * 1.4f - 0.7f).dp.toPx()).coerceIn(1f, topH - 1f),
+                                    w,
+                                    y,
+                                )
+                            }
+                            add(
+                                CachedGrainStroke(
+                                    path = topPath,
+                                    color = palette.shelfGrainDark.copy(alpha = 0.18f * decoration),
+                                    widthPx = 0.8.dp.toPx(),
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                // 4. Crisp front bevel lip catching overhead light
+                val bevelBrush = Brush.horizontalGradient(
+                    0f to palette.shelfBevelHighlight.copy(alpha = 0.22f),
+                    0.3f to palette.shelfBevelHighlight.copy(alpha = 0.45f + 0.25f * lighting),
+                    0.5f to palette.shelfBevelHighlight.copy(alpha = 0.65f + 0.32f * lighting),
+                    0.7f to palette.shelfBevelHighlight.copy(alpha = 0.45f + 0.25f * lighting),
+                    1f to palette.shelfBevelHighlight.copy(alpha = 0.22f),
+                )
+
+                // 5. Cast drop shadow beneath the shelf
+                val underShadowBrush = if (shadowScale > 0.05f) {
+                    Brush.verticalGradient(
+                        0f to palette.shelfUnderShadow.copy(
+                            alpha = (if (palette.isLight) 0.30f else 0.82f) * shadowScale,
+                        ),
+                        0.42f to palette.shelfUnderShadow.copy(
+                            alpha = (if (palette.isLight) 0.12f else 0.38f) * shadowScale,
+                        ),
+                        1f to Color.Transparent,
+                        startY = faceBottom,
+                        endY = faceBottom + shadowH,
+                    )
+                } else {
+                    null
+                }
+
+                val knotOuterSize = Size(24.dp.toPx(), 5.4.dp.toPx())
+                val knotInnerSize = Size(12.dp.toPx(), 2.6.dp.toPx())
+                val knotOuterTopLeft = Offset(knotX - knotOuterSize.width / 2f, knotY - knotOuterSize.height / 2f)
+                val knotInnerTopLeft = Offset(knotX - knotInnerSize.width / 2f, knotY - knotInnerSize.height / 2f)
+                val knotColor = palette.shelfGrainDark.copy(alpha = 0.24f * decoration)
+                val knotStroke = Stroke(width = 0.9.dp.toPx())
+                val bevelY = faceTop + 0.6.dp.toPx()
+                val bevelStrokePx = 1.25.dp.toPx()
+                val bottomLipY = faceBottom - 0.5.dp.toPx()
+                val bottomLipStrokePx = 1.dp.toPx()
+                val bottomLipColor = palette.shelfUnderShadow.copy(alpha = 0.75f)
+
+                onDrawBehind {
+                    drawRect(brush = topLedgeBrush, topLeft = Offset.Zero, size = Size(w, topH))
+                    drawRect(brush = rearAoBrush, topLeft = Offset.Zero, size = Size(w, topH * 0.78f))
+                    drawRect(brush = frontBaseBrush, topLeft = Offset(0f, faceTop), size = Size(w, faceH))
+
+                    if (frontLanternBrush != null) {
+                        drawRect(brush = frontLanternBrush, topLeft = Offset(0f, faceTop), size = Size(w, faceH))
+                    }
+                    drawRect(brush = frontEdgeVignetteBrush, topLeft = Offset(0f, faceTop), size = Size(w, faceH))
+
+                    for (stroke in grainStrokes) {
+                        drawPath(
+                            path = stroke.path,
+                            color = stroke.color,
+                            style = Stroke(width = stroke.widthPx, cap = StrokeCap.Round),
+                        )
+                    }
+
+                    if (decoration > 0.25f) {
+                        drawOval(
+                            color = knotColor,
+                            topLeft = knotOuterTopLeft,
+                            size = knotOuterSize,
+                            style = knotStroke,
+                        )
+                        drawOval(
+                            color = knotColor.copy(alpha = knotColor.alpha * 0.85f),
+                            topLeft = knotInnerTopLeft,
+                            size = knotInnerSize,
+                            style = knotStroke,
+                        )
+                    }
+
+                    drawLine(
+                        brush = bevelBrush,
+                        start = Offset(0f, bevelY),
+                        end = Offset(w, bevelY),
+                        strokeWidth = bevelStrokePx,
+                    )
+                    drawLine(
+                        color = bottomLipColor,
+                        start = Offset(0f, bottomLipY),
+                        end = Offset(w, bottomLipY),
+                        strokeWidth = bottomLipStrokePx,
+                    )
+
+                    if (underShadowBrush != null) {
+                        drawRect(
+                            brush = underShadowBrush,
+                            topLeft = Offset(0f, faceBottom),
+                            size = Size(w, shadowH),
+                        )
+                    }
+                }
+            },
+    )
 }
 
 /**
- * A full bookcase shelf tier: recessed dark wood alcove with overhead warm lantern
- * spotlight, bookcase side stiles, a horizontal row of physical manga volumes resting
- * flush on the upper ledge, and the solid wood shelf plank underneath.
+ * A full bookcase shelf tier: recessed dark wood alcove with cached tongue-and-groove
+ * back paneling, overhead warm lantern spotlight cone, side bookcase stiles, physical
+ * volumes resting flush on the shelf ledge, and the solid wood shelf plank underneath.
  */
 @Composable
 fun YomuBookshelfTier(
@@ -275,68 +346,81 @@ fun YomuBookshelfTier(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .drawBehind {
-                // Recessed wooden back panel
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        0f to palette.alcoveBackTop,
-                        1f to palette.alcoveBackBottom,
-                    ),
+            .drawWithCache {
+                val w = size.width
+                val h = size.height
+                val backBrush = Brush.verticalGradient(
+                    0f to palette.alcoveBackTop,
+                    0.75f to palette.alcoveBackBottom,
+                    1f to lerpColor(palette.alcoveBackBottom, palette.shelfUnderShadow, 0.22f),
                 )
-                // Subtle vertical tongue-and-groove bookcase back paneling
-                if (decoration > 0.15f) {
-                    val panelCount = 6
-                    val step = size.width / panelCount
-                    for (i in 1 until panelCount) {
-                        val x = step * i
+                val lanternBrush = if (lighting > 0.05f && w > 0f) {
+                    Brush.radialGradient(
+                        colors = listOf(
+                            palette.lanternGlow.copy(alpha = (if (palette.isLight) 0.26f else 0.19f) * lighting),
+                            palette.lanternGlow.copy(alpha = (if (palette.isLight) 0.09f else 0.06f) * lighting),
+                            Color.Transparent,
+                        ),
+                        center = Offset(w * 0.5f, 0f),
+                        radius = (w * 0.64f).coerceAtLeast(1f),
+                    )
+                } else {
+                    null
+                }
+                val stileW = 6.dp.toPx()
+                val leftStileBrush = Brush.horizontalGradient(
+                    0f to palette.shelfFrontBottom,
+                    0.65f to palette.shelfFrontTop.copy(alpha = 0.55f),
+                    1f to palette.shelfUnderShadow.copy(alpha = if (palette.isLight) 0.28f else 0.82f),
+                    startX = 0f,
+                    endX = stileW,
+                )
+                val rightStileBrush = Brush.horizontalGradient(
+                    0f to palette.shelfUnderShadow.copy(alpha = if (palette.isLight) 0.28f else 0.82f),
+                    0.35f to palette.shelfFrontTop.copy(alpha = 0.55f),
+                    1f to palette.shelfFrontBottom,
+                    startX = (w - stileW).coerceAtLeast(0f),
+                    endX = w,
+                )
+                val panelLines = if (decoration > 0.15f && w > 0f) {
+                    val panelCount = (w / 68.dp.toPx()).toInt().coerceIn(4, 10)
+                    val step = w / panelCount
+                    (1 until panelCount).map { step * it }
+                } else {
+                    emptyList()
+                }
+                val grooveDark = palette.alcovePanelLine.copy(alpha = 0.52f * decoration)
+                val grooveLight = palette.shelfBevelHighlight.copy(alpha = 0.08f * decoration)
+                val grooveWidthPx = 1.dp.toPx()
+
+                onDrawBehind {
+                    drawRect(brush = backBrush)
+
+                    for (x in panelLines) {
                         drawLine(
-                            color = palette.alcovePanelLine.copy(alpha = 0.45f * decoration),
+                            color = grooveDark,
                             start = Offset(x, 0f),
-                            end = Offset(x, size.height),
-                            strokeWidth = 1.dp.toPx(),
+                            end = Offset(x, h),
+                            strokeWidth = grooveWidthPx,
+                        )
+                        drawLine(
+                            color = grooveLight,
+                            start = Offset(x + grooveWidthPx, 0f),
+                            end = Offset(x + grooveWidthPx, h),
+                            strokeWidth = grooveWidthPx * 0.7f,
                         )
                     }
+
+                    if (lanternBrush != null) {
+                        drawRect(brush = lanternBrush)
+                    }
+
+                    drawRect(brush = leftStileBrush, topLeft = Offset.Zero, size = Size(stileW, h))
+                    drawRect(brush = rightStileBrush, topLeft = Offset(w - stileW, 0f), size = Size(stileW, h))
                 }
-                // Warm overhead Japanese lantern glow illuminating the alcove & books
-                if (lighting > 0.05f) {
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                palette.lanternGlow.copy(alpha = (if (palette.isLight) 0.25f else 0.17f) * lighting),
-                                palette.lanternGlow.copy(alpha = (if (palette.isLight) 0.08f else 0.05f) * lighting),
-                                Color.Transparent,
-                            ),
-                            center = Offset(size.width * 0.5f, 0f),
-                            radius = size.width * 0.62f,
-                        ),
-                    )
-                }
-                // Side walnut bookcase frame stiles
-                val stileW = 5.dp.toPx()
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        0f to palette.shelfFrontBottom,
-                        1f to palette.shelfUnderShadow.copy(alpha = 0.8f),
-                        startX = 0f,
-                        endX = stileW,
-                    ),
-                    topLeft = Offset.Zero,
-                    size = Size(stileW, size.height),
-                )
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        0f to palette.shelfUnderShadow.copy(alpha = 0.8f),
-                        1f to palette.shelfFrontBottom,
-                        startX = size.width - stileW,
-                        endX = size.width,
-                    ),
-                    topLeft = Offset(size.width - stileW, 0f),
-                    size = Size(stileW, size.height),
-                )
             },
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Books rest directly onto the shelf plank top ledge (zero floating gap)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -348,7 +432,6 @@ fun YomuBookshelfTier(
             ) {
                 content()
             }
-            // Pull shelf plank slightly underneath the books' contact shadow so volumes sit ON the wood
             YomuWoodShelfPlank(
                 rowIndex = rowIndex,
                 modifier = Modifier.offset(y = (-4).dp),
@@ -359,9 +442,9 @@ fun YomuBookshelfTier(
 
 /**
  * Physical manga volume styled to match the Primary Design bookshelf target:
- * sharp cover art, tactile side page-block thickness, spine fold highlight,
- * grounded contact shadow, amethyst unread pill, sage downloaded icon,
- * optional title scrim & reading progress bar, and smooth lift on focus/selection.
+ * crisp physical book corners, undistorted cover art, cached tactile parchment page-block,
+ * subtle spine fold crease, grounded contact shadow, single clean focus target for
+ * controller/keyboard navigation, and smooth lift on focus/selection.
  */
 @Composable
 fun YomuPhysicalMangaVolume(
@@ -383,12 +466,18 @@ fun YomuPhysicalMangaVolume(
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
     val motionScale = style.effectiveMotionScale
-    val thicknessDp = ((if (collectorMode) 7f else 5f) * (0.4f + 0.6f * style.bookThickness)).dp
+    val thicknessDp = ((if (collectorMode) 6.5f else 4.5f) * (0.4f + 0.6f * style.bookThickness)).dp
     val shadowScale = style.shadowIntensity
 
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     val isElevated = isSelected || isFocused
     val liftY by animateDpAsState(
@@ -413,45 +502,50 @@ fun YomuPhysicalMangaVolume(
     Box(
         modifier = modifier
             .bringIntoViewRequester(bringIntoViewRequester)
-            .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-                if (focusState.isFocused) {
-                    scope.launch { bringIntoViewRequester.bringIntoView() }
-                }
-            }
-            .focusable()
             .semantics { contentDescription = accessibilityLabel }
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 role = Role.Button,
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
     ) {
-        // Grounded contact shadow directly beneath the book resting on the wooden shelf
+        // Cached grounded contact shadow directly beneath the book resting on the wooden shelf
         if (shadowScale > 0.05f) {
-            Canvas(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(10.dp)
-                    .offset(y = 3.dp),
-            ) {
-                drawOval(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            palette.bookSpineShadow.copy(alpha = (if (palette.isLight) 0.42f else 0.85f) * shadowScale),
-                            Color.Transparent,
-                        ),
-                        center = Offset(size.width * 0.5f, size.height * 0.5f),
-                        radius = size.width * 0.56f,
-                    ),
-                    topLeft = Offset(-2.dp.toPx(), 0f),
-                    size = Size(size.width + 4.dp.toPx(), size.height),
-                )
-            }
+                    .offset(y = 3.dp)
+                    .drawWithCache {
+                        val shadowBrush = Brush.radialGradient(
+                            colors = listOf(
+                                palette.bookSpineShadow.copy(
+                                    alpha = (if (palette.isLight) 0.40f else 0.88f) * shadowScale,
+                                ),
+                                palette.bookSpineShadow.copy(
+                                    alpha = (if (palette.isLight) 0.14f else 0.35f) * shadowScale,
+                                ),
+                                Color.Transparent,
+                            ),
+                            center = Offset(size.width * 0.5f, size.height * 0.5f),
+                            radius = (size.width * 0.58f).coerceAtLeast(1f),
+                        )
+                        val pad = 2.dp.toPx()
+                        onDrawBehind {
+                            drawOval(
+                                brush = shadowBrush,
+                                topLeft = Offset(-pad, 0f),
+                                size = Size(size.width + pad * 2f, size.height),
+                            )
+                        }
+                    },
+            )
         }
 
-        // Physical book assembly (lifts smoothly on selection/controller focus)
+        // Physical book assembly
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -461,33 +555,47 @@ fun YomuPhysicalMangaVolume(
                     scaleY = scale
                 },
         ) {
-            // Right-side layered parchment page-block thickness (real physical volume feel!)
+            // Cached right-side layered parchment page-block thickness
             if (thicknessDp > 1.dp) {
-                Canvas(
+                Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .padding(top = 2.dp, bottom = 1.dp),
-                ) {
-                    val edgeW = thicknessDp.toPx()
-                    val leftX = size.width - edgeW
-                    drawRoundRect(
-                        color = palette.bookPageEdge,
-                        topLeft = Offset(leftX - 2.dp.toPx(), 0f),
-                        size = Size(edgeW + 2.dp.toPx(), size.height),
-                        cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-                    )
-                    // Subtle vertical page sheet lines
-                    val sheets = 3
-                    for (i in 1..sheets) {
-                        val x = leftX + (edgeW * i / (sheets + 1))
-                        drawLine(
-                            color = palette.bookPageLine.copy(alpha = 0.7f),
-                            start = Offset(x, 2.dp.toPx()),
-                            end = Offset(x, size.height - 2.dp.toPx()),
-                            strokeWidth = 0.7.dp.toPx(),
-                        )
-                    }
-                }
+                        .padding(top = 1.5.dp, bottom = 1.dp)
+                        .drawWithCache {
+                            val edgeW = thicknessDp.toPx()
+                            val leftX = (size.width - edgeW).coerceAtLeast(0f)
+                            val overlap = 2.dp.toPx()
+                            val corner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                            val pageBrush = Brush.horizontalGradient(
+                                0f to palette.bookPageLine,
+                                0.35f to palette.bookPageEdge,
+                                0.85f to palette.bookPageEdge,
+                                1f to palette.bookPageLine,
+                                startX = leftX,
+                                endX = size.width,
+                            )
+                            val lineColor = palette.bookPageLine.copy(alpha = 0.65f)
+                            val lineStrokePx = 0.65.dp.toPx()
+                            val sheetXs = (1..3).map { i -> leftX + (edgeW * i / 4f) }
+                            val padY = 2.dp.toPx()
+                            onDrawBehind {
+                                drawRoundRect(
+                                    brush = pageBrush,
+                                    topLeft = Offset(leftX - overlap, 0f),
+                                    size = Size(edgeW + overlap, size.height),
+                                    cornerRadius = corner,
+                                )
+                                for (x in sheetXs) {
+                                    drawLine(
+                                        color = lineColor,
+                                        start = Offset(x, padY),
+                                        end = Offset(x, size.height - padY),
+                                        strokeWidth = lineStrokePx,
+                                    )
+                                }
+                            }
+                        },
+                )
             }
 
             // Front cover board
@@ -521,31 +629,33 @@ fun YomuPhysicalMangaVolume(
                         .alpha(if (isSelected) 0.82f else 1f),
                 )
 
-                // Tactile book spine fold shading & specular crease on the left edge
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val spineW = (if (collectorMode) 11.dp else 8.dp).toPx()
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            0f to Color.Black.copy(alpha = 0.42f),
-                            0.35f to Color.White.copy(alpha = 0.14f),
-                            0.65f to Color.Black.copy(alpha = 0.18f),
-                            1f to Color.Transparent,
-                            startX = 0f,
-                            endX = spineW,
-                        ),
-                        size = Size(spineW, size.height),
-                    )
-                    // Subtle warm overhead top sheen
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            0f to Color.White.copy(alpha = 0.10f * style.lightingIntensity),
-                            0.18f to Color.Transparent,
-                        ),
-                        size = Size(size.width, size.height * 0.18f),
-                    )
-                }
+                // Cached spine hinge crease & subtle overhead lantern sheen
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .drawWithCache {
+                            val spineW = (if (collectorMode) 10.dp else 7.5.dp).toPx()
+                            val spineBrush = Brush.horizontalGradient(
+                                0f to Color.Black.copy(alpha = 0.44f),
+                                0.34f to Color.White.copy(alpha = 0.14f),
+                                0.66f to Color.Black.copy(alpha = 0.18f),
+                                1f to Color.Transparent,
+                                startX = 0f,
+                                endX = spineW,
+                            )
+                            val topSheenBrush = Brush.verticalGradient(
+                                0f to Color.White.copy(alpha = 0.10f * style.lightingIntensity),
+                                0.18f to Color.Transparent,
+                                startY = 0f,
+                                endY = size.height * 0.18f,
+                            )
+                            onDrawBehind {
+                                drawRect(brush = spineBrush, size = Size(spineW, size.height))
+                                drawRect(brush = topSheenBrush, size = Size(size.width, size.height * 0.18f))
+                            }
+                        },
+                )
 
-                // Gold bookmark ribbon accent in top-left if bookmarked
                 if (hasBookmarks) {
                     Icon(
                         imageVector = MaterialSymbols.Rounded.Bookmark,
@@ -558,7 +668,6 @@ fun YomuPhysicalMangaVolume(
                     )
                 }
 
-                // Bottom title overlay scrim (matches primary design bookshelf!)
                 if (showTitle) {
                     Box(
                         modifier = Modifier
@@ -568,8 +677,8 @@ fun YomuPhysicalMangaVolume(
                             .background(
                                 Brush.verticalGradient(
                                     0f to Color.Transparent,
-                                    0.45f to Color(0x99100D0B),
-                                    1f to Color(0xEB0E0A08),
+                                    0.45f to Color(0x9E100D0B),
+                                    1f to Color(0xED0E0A08),
                                 ),
                             ),
                     )
@@ -602,7 +711,6 @@ fun YomuPhysicalMangaVolume(
                     )
                 }
 
-                // Downloaded sage green indicator (bottom-right)
                 if (downloadCount > 0 && onClickContinueReading == null) {
                     Box(
                         modifier = Modifier
@@ -632,7 +740,6 @@ fun YomuPhysicalMangaVolume(
                     }
                 }
 
-                // Quick resume play button if enabled in library settings
                 if (onClickContinueReading != null) {
                     Box(
                         modifier = Modifier
@@ -662,7 +769,6 @@ fun YomuPhysicalMangaVolume(
                     }
                 }
 
-                // Reading progress bar flush at the bottom of the cover
                 if (showProgress && readProgress != null && readProgress > 0f) {
                     Box(
                         modifier = Modifier
@@ -681,7 +787,6 @@ fun YomuPhysicalMangaVolume(
                 }
             }
 
-            // Unread amethyst pill badge overlapping the top-right corner of the book (matches 02_Library.png!)
             if (unreadCount > 0) {
                 Box(
                     modifier = Modifier
@@ -710,8 +815,8 @@ fun YomuPhysicalMangaVolume(
 
 /**
  * Vertical physical book spine resting flush on a wooden shelf for Book Spine Mode.
- * Uses muted, handcrafted cloth/leather binding tones derived deterministically from
- * series metadata (never falsely claiming generated spines are publisher art).
+ * Uses muted handcrafted cloth/leather binding tones derived deterministically from
+ * series metadata with a single clean focus target for controller/keyboard navigation.
  */
 @Composable
 fun YomuBookSpineVolume(
@@ -730,9 +835,15 @@ fun YomuBookSpineVolume(
     val motionScale = style.effectiveMotionScale
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     val isElevated = isSelected || isFocused
     val liftY by animateDpAsState(
@@ -743,36 +854,36 @@ fun YomuBookSpineVolume(
 
     val spineColors = remember {
         listOf(
-            Color(0xFF3A2329), // Deep burgundy cloth
-            Color(0xFF222D3D), // Midnight indigo linen
-            Color(0xFF23362B), // Forest pine binding
-            Color(0xFF3E2D20), // Aged saddle walnut
-            Color(0xFF342742), // Royal plum cloth
-            Color(0xFF2F3438), // Charcoal slate
-            Color(0xFF473322), // Burnished bronze
+            Color(0xFF3A2329),
+            Color(0xFF222D3D),
+            Color(0xFF23362B),
+            Color(0xFF3E2D20),
+            Color(0xFF342742),
+            Color(0xFF2F3438),
+            Color(0xFF473322),
         )
     }
     val hash = abs((mangaId * 31 + title.hashCode()).toInt())
     val spineBase = spineColors[hash % spineColors.size]
-    // Vary book heights slightly like real collected manga volumes on a personal shelf
-    val heightDp = (152 + (hash % 24)).dp
-    val shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+    val heightDp = (154 + (hash % 24)).dp
+    val shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp)
+    val accessibilityLabel = buildString {
+        append(title)
+        if (unreadCount > 0) append(", $unreadCount unread")
+        if (downloadCount > 0) append(", $downloadCount downloaded")
+    }
 
     Box(
         modifier = modifier
             .height(heightDp)
             .offset(y = liftY)
             .bringIntoViewRequester(bringIntoViewRequester)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() }
-            }
-            .focusable()
+            .semantics { contentDescription = accessibilityLabel }
             .shadow(if (isElevated) 10.dp else 4.dp, shape)
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
-                    0f to spineBase.copy(alpha = 0.85f),
+                    0f to spineBase.copy(alpha = 0.88f),
                     0.22f to lerpColor(spineBase, Color.White, 0.14f),
                     0.78f to spineBase,
                     1f to Color.Black.copy(alpha = 0.55f),
@@ -786,12 +897,13 @@ fun YomuBookSpineVolume(
                 },
             )
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 role = Role.Button,
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
     ) {
-        // Antique gold embossed headband trims near top & bottom of the spine
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -809,7 +921,6 @@ fun YomuBookSpineVolume(
                 .background(palette.goldAccent.copy(alpha = 0.55f)),
         )
 
-        // Unread amethyst badge at top of spine
         if (unreadCount > 0) {
             Box(
                 modifier = Modifier
@@ -829,7 +940,6 @@ fun YomuBookSpineVolume(
             }
         }
 
-        // Rotated title along the spine
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -850,7 +960,6 @@ fun YomuBookSpineVolume(
             )
         }
 
-        // Downloaded sage indicator or progress tick near bottom
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

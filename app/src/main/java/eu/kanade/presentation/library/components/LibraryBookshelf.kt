@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -106,8 +107,8 @@ internal fun SmartShelvesChipRow(
 
 /**
  * Signature Yomu Bookshelf layout (Classic Bookshelf & Collector Edition).
- * Renders rows of physical manga volumes resting flush on realistic dark walnut
- * (or Ebony / Oak / Cherry) wooden shelves with warm overhead lantern lighting.
+ * Uses [BoxWithConstraints] against the actual available layout width so split-screen,
+ * foldables, tablets, and split-pane layouts calculate exact column counts safely.
  */
 @Composable
 internal fun LibraryWoodenBookshelf(
@@ -123,102 +124,112 @@ internal fun LibraryWoodenBookshelf(
     onGlobalSearchClicked: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val booksPerRow = remember(columns, collectorEdition, screenWidthDp) {
-        when {
-            columns > 0 -> columns.coerceIn(1, 10)
-            collectorEdition -> when {
-                screenWidthDp >= 900 -> 4
-                screenWidthDp >= 600 -> 3
-                else -> 2
-            }
-            else -> when {
-                screenWidthDp >= 1000 -> 6
-                screenWidthDp >= 800 -> 5
-                screenWidthDp >= 600 -> 4
-                else -> 3
-            }
-        }
-    }
-
-    val rows = remember(items, booksPerRow) { items.chunked(booksPerRow) }
     val rowSpacing = if (collectorEdition) 18.dp else 12.dp
     val sidePad = if (collectorEdition) 20.dp else 14.dp
 
-    FastScrollLazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(style.shelfPalette.alcoveBackBottom),
-        contentPadding = contentPadding,
-    ) {
-        if (!searchQuery.isNullOrEmpty()) {
-            item(key = "bookshelf_global_search") {
-                GlobalSearchItem(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    searchQuery = searchQuery,
-                    onClick = onGlobalSearchClicked,
-                )
-            }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(240)
+        val minBookWidthDp = if (collectorEdition) 118 else 84
+        val maxSafeColumns = (
+            (availableWidthDp - sidePad.value.toInt() * 2 + rowSpacing.value.toInt()) /
+                (minBookWidthDp + rowSpacing.value.toInt())
+            )
+            .coerceIn(2, 10)
+
+        val booksPerRow = remember(columns, collectorEdition, availableWidthDp, maxSafeColumns) {
+            when {
+                columns > 0 -> columns.coerceIn(1, maxSafeColumns)
+                collectorEdition -> when {
+                    availableWidthDp >= 900 -> 4
+                    availableWidthDp >= 600 -> 3
+                    else -> 2
+                }
+                else -> when {
+                    availableWidthDp >= 1000 -> 6
+                    availableWidthDp >= 780 -> 5
+                    availableWidthDp >= 560 -> 4
+                    else -> 3
+                }
+            }.coerceAtMost(maxSafeColumns)
         }
 
-        items(
-            items = rows.withIndex().toList(),
-            key = { (rowIdx, rowItems) -> "shelf_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-            contentType = { "yomu_bookshelf_row" },
-        ) { (rowIndex, rowItems) ->
-            YomuBookshelfTier(
-                rowIndex = rowIndex,
-                horizontalPadding = sidePad,
-                itemSpacing = rowSpacing,
-                topAlcovePadding = if (collectorEdition) 18.dp else 12.dp,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(rowSpacing),
-                    verticalAlignment = Alignment.Bottom,
+        val rows = remember(items, booksPerRow) { items.chunked(booksPerRow) }
+
+        FastScrollLazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(style.shelfPalette.alcoveBackBottom),
+            contentPadding = contentPadding,
+        ) {
+            if (!searchQuery.isNullOrEmpty()) {
+                item(key = "bookshelf_global_search") {
+                    GlobalSearchItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        searchQuery = searchQuery,
+                        onClick = onGlobalSearchClicked,
+                    )
+                }
+            }
+
+            items(
+                items = rows.withIndex().toList(),
+                key = { (rowIdx, rowItems) -> "shelf_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
+                contentType = { "yomu_bookshelf_row" },
+            ) { (rowIndex, rowItems) ->
+                YomuBookshelfTier(
+                    rowIndex = rowIndex,
+                    horizontalPadding = sidePad,
+                    itemSpacing = rowSpacing,
+                    topAlcovePadding = if (collectorEdition) 18.dp else 12.dp,
                 ) {
-                    for (slot in 0 until booksPerRow) {
-                        val libraryItem = rowItems.getOrNull(slot)
-                        if (libraryItem != null) {
-                            val manga = libraryItem.libraryManga.manga
-                            val libManga = libraryItem.libraryManga
-                            val progress = if (libManga.totalChapters > 0 && libManga.readCount > 0) {
-                                (libManga.readCount.toFloat() / libManga.totalChapters.toFloat()).coerceIn(0f, 1f)
-                            } else {
-                                null
-                            }
-                            YomuPhysicalMangaVolume(
-                                coverData = MangaCoverModel(
-                                    mangaId = manga.id,
-                                    sourceId = manga.source,
-                                    isMangaFavorite = manga.favorite,
-                                    url = manga.thumbnailUrl,
-                                    lastModified = manga.coverLastModified,
-                                ),
-                                title = manga.title,
-                                unreadCount = libraryItem.badges.unreadCount,
-                                downloadCount = libraryItem.badges.downloadCount,
-                                readProgress = progress,
-                                hasBookmarks = libManga.hasBookmarks,
-                                isSelected = manga.id in selection,
-                                showTitle = style.showShelfTitles,
-                                showProgress = style.showShelfProgress,
-                                collectorMode = collectorEdition,
-                                onClick = { onClick(libManga) },
-                                onLongClick = { onLongClick(libManga) },
-                                onClickContinueReading = if (onClickContinueReading != null &&
-                                    libraryItem.unreadCount > 0
-                                ) {
-                                    { onClickContinueReading(libManga) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        for (slot in 0 until booksPerRow) {
+                            val libraryItem = rowItems.getOrNull(slot)
+                            if (libraryItem != null) {
+                                val manga = libraryItem.libraryManga.manga
+                                val libManga = libraryItem.libraryManga
+                                val progress = if (libManga.totalChapters > 0 && libManga.readCount > 0) {
+                                    (libManga.readCount.toFloat() / libManga.totalChapters.toFloat()).coerceIn(0f, 1f)
                                 } else {
                                     null
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
+                                }
+                                YomuPhysicalMangaVolume(
+                                    coverData = MangaCoverModel(
+                                        mangaId = manga.id,
+                                        sourceId = manga.source,
+                                        isMangaFavorite = manga.favorite,
+                                        url = manga.thumbnailUrl,
+                                        lastModified = manga.coverLastModified,
+                                    ),
+                                    title = manga.title,
+                                    unreadCount = libraryItem.badges.unreadCount,
+                                    downloadCount = libraryItem.badges.downloadCount,
+                                    readProgress = progress,
+                                    hasBookmarks = libManga.hasBookmarks,
+                                    isSelected = manga.id in selection,
+                                    showTitle = style.showShelfTitles,
+                                    showProgress = style.showShelfProgress,
+                                    collectorMode = collectorEdition,
+                                    onClick = { onClick(libManga) },
+                                    onLongClick = { onLongClick(libManga) },
+                                    onClickContinueReading = if (onClickContinueReading != null &&
+                                        libraryItem.unreadCount > 0
+                                    ) {
+                                        { onClickContinueReading(libManga) }
+                                    } else {
+                                        null
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -229,6 +240,7 @@ internal fun LibraryWoodenBookshelf(
 
 /**
  * Vertical Book Spine shelf mode: books stand upright by their spines on wooden shelves.
+ * Uses [BoxWithConstraints] so spine density stays readable and touch-friendly at every width.
  */
 @Composable
 internal fun LibraryBookSpineShelf(
@@ -242,73 +254,77 @@ internal fun LibraryBookSpineShelf(
     onGlobalSearchClicked: () -> Unit,
 ) {
     val style = LocalYomuStyle.current
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val spinesPerRow = remember(columns, screenWidthDp) {
-        when {
-            columns > 0 -> (columns * 2).coerceIn(4, 16)
-            screenWidthDp >= 900 -> 14
-            screenWidthDp >= 600 -> 10
-            else -> 7
-        }
-    }
-    val rows = remember(items, spinesPerRow) { items.chunked(spinesPerRow) }
 
-    FastScrollLazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(style.shelfPalette.alcoveBackBottom),
-        contentPadding = contentPadding,
-    ) {
-        if (!searchQuery.isNullOrEmpty()) {
-            item(key = "spine_global_search") {
-                GlobalSearchItem(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    searchQuery = searchQuery,
-                    onClick = onGlobalSearchClicked,
-                )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(240)
+        val maxSafeSpines = ((availableWidthDp - 24) / 44).coerceIn(4, 16)
+        val spinesPerRow = remember(columns, availableWidthDp, maxSafeSpines) {
+            when {
+                columns > 0 -> (columns * 2).coerceIn(4, maxSafeSpines)
+                availableWidthDp >= 900 -> 14
+                availableWidthDp >= 600 -> 10
+                else -> 7
+            }.coerceAtMost(maxSafeSpines)
+        }
+        val rows = remember(items, spinesPerRow) { items.chunked(spinesPerRow) }
+
+        FastScrollLazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(style.shelfPalette.alcoveBackBottom),
+            contentPadding = contentPadding,
+        ) {
+            if (!searchQuery.isNullOrEmpty()) {
+                item(key = "spine_global_search") {
+                    GlobalSearchItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        searchQuery = searchQuery,
+                        onClick = onGlobalSearchClicked,
+                    )
+                }
             }
-        }
 
-        items(
-            items = rows.withIndex().toList(),
-            key = { (rowIdx, rowItems) -> "spine_row_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-            contentType = { "yomu_spine_row" },
-        ) { (rowIndex, rowItems) ->
-            YomuBookshelfTier(
-                rowIndex = rowIndex,
-                horizontalPadding = 12.dp,
-                topAlcovePadding = 14.dp,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.Bottom,
+            items(
+                items = rows.withIndex().toList(),
+                key = { (rowIdx, rowItems) -> "spine_row_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
+                contentType = { "yomu_spine_row" },
+            ) { (rowIndex, rowItems) ->
+                YomuBookshelfTier(
+                    rowIndex = rowIndex,
+                    horizontalPadding = 12.dp,
+                    topAlcovePadding = 14.dp,
                 ) {
-                    for (slot in 0 until spinesPerRow) {
-                        val libraryItem = rowItems.getOrNull(slot)
-                        if (libraryItem != null) {
-                            val manga = libraryItem.libraryManga.manga
-                            val libManga = libraryItem.libraryManga
-                            val progress = if (libManga.totalChapters > 0 && libManga.readCount > 0) {
-                                (libManga.readCount.toFloat() / libManga.totalChapters.toFloat()).coerceIn(0f, 1f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        for (slot in 0 until spinesPerRow) {
+                            val libraryItem = rowItems.getOrNull(slot)
+                            if (libraryItem != null) {
+                                val manga = libraryItem.libraryManga.manga
+                                val libManga = libraryItem.libraryManga
+                                val progress = if (libManga.totalChapters > 0 && libManga.readCount > 0) {
+                                    (libManga.readCount.toFloat() / libManga.totalChapters.toFloat()).coerceIn(0f, 1f)
+                                } else {
+                                    null
+                                }
+                                YomuBookSpineVolume(
+                                    mangaId = manga.id,
+                                    title = manga.title,
+                                    unreadCount = libraryItem.badges.unreadCount,
+                                    downloadCount = libraryItem.badges.downloadCount,
+                                    readProgress = progress,
+                                    isSelected = manga.id in selection,
+                                    onClick = { onClick(libManga) },
+                                    onLongClick = { onLongClick(libManga) },
+                                    modifier = Modifier.weight(1f),
+                                )
                             } else {
-                                null
+                                Spacer(modifier = Modifier.weight(1f))
                             }
-                            YomuBookSpineVolume(
-                                mangaId = manga.id,
-                                title = manga.title,
-                                unreadCount = libraryItem.badges.unreadCount,
-                                downloadCount = libraryItem.badges.downloadCount,
-                                readProgress = progress,
-                                isSelected = manga.id in selection,
-                                onClick = { onClick(libManga) },
-                                onLongClick = { onLongClick(libManga) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }

@@ -51,6 +51,10 @@ import mihon.icons.materialsymbols.rounded.KeyboardArrowRight
 
 /**
  * Controller & keyboard friendly focus indicator with automatic scroll-into-view.
+ *
+ * Intentionally does NOT stack a second `.focusable()` onto already-clickable controls
+ * (`Surface(onClick)`, `Button`, `.clickable`, `.combinedClickable`), avoiding duplicate
+ * D-pad focus stops while still highlighting the exact focused target with antique gold.
  */
 fun Modifier.yomuFocusHighlight(
     shape: Shape = YomuShapes.card,
@@ -63,8 +67,9 @@ fun Modifier.yomuFocusHighlight(
     this
         .bringIntoViewRequester(bringIntoViewRequester)
         .onFocusChanged { state ->
-            isFocused = state.isFocused
-            if (state.isFocused) {
+            val focused = state.isFocused || state.hasFocus
+            isFocused = focused
+            if (focused) {
                 scope.launch { bringIntoViewRequester.bringIntoView() }
             }
         }
@@ -75,7 +80,6 @@ fun Modifier.yomuFocusHighlight(
                 Modifier
             },
         )
-        .focusable()
 }
 
 /**
