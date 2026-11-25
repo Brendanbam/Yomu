@@ -98,7 +98,7 @@ class YomuHomeViewModel(
     private val updatesFlow: Flow<SectionLoadState<List<UpdatesWithRelations>>> = retryTrigger.flatMapLatest {
         getUpdates.subscribe(
             instant = Clock.System.now().minus(1, DateTimeUnit.MONTH, TimeZone.currentSystemDefault()),
-            unread = null,
+            unread = true,
             started = null,
             bookmarked = null,
             hideExcludedScanlators = false,
@@ -176,9 +176,9 @@ class YomuHomeViewModel(
         val heroTitle = continueReading?.title ?: featuredLib?.manga?.title
         val heroMangaId = continueReading?.mangaId ?: featuredLib?.manga?.id
 
-        // Prioritize unread updates first while preserving chronological order within unread/read groups
+        // The new-arrivals shelf represents unread releases, not previously read chapters.
         val recentlyUpdated = updatesList
-            .sortedWith(compareBy<UpdatesWithRelations> { it.read })
+            .filterNot { it.read }
             .distinctBy { it.mangaId }
             .take(12)
             .map { u ->
