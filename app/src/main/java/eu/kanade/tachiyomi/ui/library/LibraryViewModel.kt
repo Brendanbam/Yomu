@@ -427,6 +427,18 @@ class LibraryViewModel(
             libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadCounts.getValue(manga.id)
+                val nextChapter = if (!manga.manga.isLocal() && downloadCount > 0 && manga.unreadCount > 0L) {
+                    getNextChapters.await(manga.id).firstOrNull()
+                } else {
+                    null
+                }
+                val nextDownloaded = nextChapter != null && downloadCache.isChapterDownloaded(
+                    chapterName = nextChapter.name,
+                    chapterScanlator = nextChapter.scanlator,
+                    chapterUrl = nextChapter.url,
+                    mangaTitle = manga.manga.title,
+                    sourceId = manga.manga.source,
+                )
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadCount,
@@ -434,6 +446,7 @@ class LibraryViewModel(
                     isLocal = manga.manga.isLocal(),
                     sourceName = source.name.lowercase(),
                     sourceLanguage = source.lang,
+                    hasNextReadableChapterDownloaded = nextDownloaded,
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {
                             downloadCount
