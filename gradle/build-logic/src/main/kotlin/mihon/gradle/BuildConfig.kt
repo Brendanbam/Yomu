@@ -24,8 +24,8 @@ val Project.Config: BuildConfig get() = object : BuildConfig {
         }
         ?: Distribution.LOCAL
 
-    override val includeTelemetry: Boolean = project.flag("include-telemetry")
-        ?: (distribution == Distribution.CI || distribution == Distribution.GITHUB)
+    // Yomu does not ship Mihon's Firebase telemetry project (`app/google-services.json` targets `app.mihon`).
+    override val includeTelemetry: Boolean = project.flag("include-telemetry") ?: false
 
     override val uploadCrashlyticsMapping: Boolean = includeTelemetry && (distribution == Distribution.GITHUB)
 

@@ -112,7 +112,7 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew :app:assembleRelease -PyomuVersionName="${VERSION_NAME}"
+          ./gradlew :app:assembleRelease -Pdist=github -PyomuVersionName="${VERSION_NAME}"
 
       - name: Verify APK metadata, signatures, and prepare release assets
         env:
