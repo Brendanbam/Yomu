@@ -19,6 +19,20 @@ enum class YomuShelfMaterial(val titleRes: StringResource) {
     CHERRY_WOOD(MR.strings.yomu_material_cherry),
 }
 
+enum class YomuShelfPreset(
+    val titleRes: StringResource,
+    val material: YomuShelfMaterial,
+    val lighting: Int,
+    val thickness: Int,
+    val shadow: Int,
+    val texture: Int,
+) {
+    WALNUT(MR.strings.yomu_material_walnut, YomuShelfMaterial.DARK_WALNUT, 75, 70, 80, 85),
+    EBONY(MR.strings.yomu_material_ebony, YomuShelfMaterial.BLACK_EBONY, 40, 75, 90, 60),
+    OAK(MR.strings.yomu_material_oak, YomuShelfMaterial.NATURAL_OAK, 90, 60, 35, 75),
+    CHERRY(MR.strings.yomu_material_cherry, YomuShelfMaterial.CHERRY_WOOD, 70, 80, 65, 90),
+}
+
 enum class YomuHomeSection(val id: String, val titleRes: StringResource) {
     HERO_BANNER("hero", MR.strings.yomu_nav_home),
     CONTINUE_READING("continue", MR.strings.yomu_home_continue_reading),

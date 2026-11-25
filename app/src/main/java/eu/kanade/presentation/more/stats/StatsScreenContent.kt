@@ -4,10 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -22,6 +25,7 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
+import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import java.util.Locale
@@ -32,6 +36,8 @@ import kotlin.time.toDuration
 fun StatsScreenContent(
     state: StatsScreenState.Success,
     paddingValues: PaddingValues,
+    goal: StatsData.ReadingGoal?,
+    onGoalChanged: (Int) -> Unit,
 ) {
     LazyColumn(
         contentPadding = paddingValues,
@@ -40,8 +46,51 @@ fun StatsScreenContent(
         item {
             OverviewSection(state.overview)
         }
+        if (goal != null) {
+            item {
+                SectionCard(MR.strings.yomu_reading_goal) {
+                    Text(stringResource(MR.strings.yomu_titles_read_week, goal.titlesRead))
+                    if (goal.target > 0) {
+                        LinearProgressIndicator(
+                            progress = { (goal.titlesRead.toFloat() / goal.target).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    SliderItem(
+                        value = goal.target,
+                        valueRange = 0..30,
+                        label = stringResource(MR.strings.yomu_goal_titles_target),
+                        valueString = if (goal.target ==
+                            0
+                        ) {
+                            stringResource(MR.strings.disabled)
+                        } else {
+                            goal.target.toString()
+                        },
+                        onChange = onGoalChanged,
+                        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    )
+                }
+            }
+        }
         item {
             TitlesStats(state.titles)
+        }
+        item {
+            SectionCard(MR.strings.yomu_collection_growth) {
+                Row(Modifier.fillMaxWidth()) {
+                    StatsItem(
+                        state.collection.addedThisWeek.toString(),
+                        stringResource(MR.strings.yomu_added_this_week),
+                    )
+                }
+                state.collection.categories.forEach { (name, count) ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(name, modifier = Modifier.weight(1f))
+                        Text(count.toString())
+                    }
+                }
+            }
         }
         item {
             ChapterStats(state.chapters)

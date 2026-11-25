@@ -3,9 +3,11 @@ package eu.kanade.presentation.theme.yomu
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -28,6 +30,8 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,9 +55,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +72,8 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -462,6 +470,7 @@ fun YomuPhysicalMangaVolume(
     onClickContinueReading: (() -> Unit)? = null,
     collectorMode: Boolean = false,
     modifier: Modifier = Modifier,
+    isInspected: Boolean = false,
 ) {
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
@@ -479,30 +488,40 @@ fun YomuPhysicalMangaVolume(
         }
     }
 
-    val isElevated = isSelected || isFocused
+    val isElevated = isSelected || isFocused || isInspected
     val liftY by animateDpAsState(
         targetValue = if (isElevated && motionScale > 0f) (-6 * motionScale).dp else 0.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
+        animationSpec = if (motionScale == 0f) {
+            snap()
+        } else {
+            spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+        },
         label = "bookLift",
     )
     val scale by animateFloatAsState(
         targetValue = if (isElevated && motionScale > 0f) 1f + 0.025f * motionScale else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = if (motionScale == 0f) snap() else spring(stiffness = Spring.StiffnessMediumLow),
         label = "bookScale",
     )
 
     val bookShape = YomuShapes.bookCover
     val primaryColor = MaterialTheme.colorScheme.primary
-    val accessibilityLabel = buildString {
-        append(title)
-        if (unreadCount > 0) append(", $unreadCount unread")
-        if (downloadCount > 0) append(", $downloadCount downloaded")
-    }
+    val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, unreadCount)
+    val downloadLabel = stringResource(MR.strings.yomu_downloaded_count, downloadCount)
+    val inspectedLabel = stringResource(MR.strings.yomu_tablet_inspected_book)
+    val accessibilityLabel = buildList {
+        add(title)
+        if (unreadCount > 0) add(unreadLabel)
+        if (downloadCount > 0) add(downloadLabel)
+    }.joinToString(", ")
 
     Box(
         modifier = modifier
             .bringIntoViewRequester(bringIntoViewRequester)
-            .semantics { contentDescription = accessibilityLabel }
+            .semantics {
+                contentDescription = accessibilityLabel
+                if (isInspected) stateDescription = inspectedLabel
+            }
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -616,6 +635,7 @@ fun YomuPhysicalMangaVolume(
                         when {
                             isSelected -> Modifier.border(2.5.dp, primaryColor, bookShape)
                             isFocused -> Modifier.border(2.5.dp, palette.goldAccent, bookShape)
+                            isInspected -> Modifier.border(2.5.dp, primaryColor, bookShape)
                             else -> Modifier.border(0.8.dp, Color.White.copy(alpha = 0.12f), bookShape)
                         },
                     ),
@@ -673,11 +693,11 @@ fun YomuPhysicalMangaVolume(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .fillMaxHeight(0.46f)
+                            .fillMaxHeight(0.34f)
                             .background(
                                 Brush.verticalGradient(
                                     0f to Color.Transparent,
-                                    0.45f to Color(0x9E100D0B),
+                                    0.48f to Color(0x78100D0B),
                                     1f to Color(0xED0E0A08),
                                 ),
                             ),
@@ -754,18 +774,25 @@ fun YomuPhysicalMangaVolume(
                                     5.dp
                                 },
                             )
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(primaryColor.copy(alpha = 0.92f))
-                            .combinedClickable(onClick = onClickContinueReading),
-                        contentAlignment = Alignment.Center,
+                            .size(48.dp)
+                            .yomuFocusHighlight(CircleShape)
+                            .clickable(role = Role.Button, onClick = onClickContinueReading),
+                        contentAlignment = Alignment.BottomEnd,
                     ) {
-                        Icon(
-                            imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(primaryColor.copy(alpha = 0.92f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
+                                contentDescription = stringResource(MR.strings.yomu_home_resume_reading),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
                     }
                 }
 
@@ -780,7 +807,7 @@ fun YomuPhysicalMangaVolume(
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .fillMaxWidth(readProgress.coerceIn(0.05f, 1f))
+                                .fillMaxWidth(readProgress.coerceIn(0f, 1f))
                                 .background(primaryColor),
                         )
                     }
@@ -821,6 +848,7 @@ fun YomuPhysicalMangaVolume(
 @Composable
 fun YomuBookSpineVolume(
     mangaId: Long,
+    onReadNext: (() -> Unit)?,
     title: String,
     unreadCount: Long,
     downloadCount: Int,
@@ -829,6 +857,7 @@ fun YomuBookSpineVolume(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isInspected: Boolean = false,
 ) {
     val style = LocalYomuStyle.current
     val palette = style.shelfPalette
@@ -845,10 +874,10 @@ fun YomuBookSpineVolume(
         }
     }
 
-    val isElevated = isSelected || isFocused
+    val isElevated = isSelected || isFocused || isInspected
     val liftY by animateDpAsState(
         targetValue = if (isElevated && motionScale > 0f) (-8 * motionScale).dp else 0.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = if (motionScale == 0f) snap() else spring(stiffness = Spring.StiffnessMediumLow),
         label = "spineLift",
     )
 
@@ -863,22 +892,28 @@ fun YomuBookSpineVolume(
             Color(0xFF473322),
         )
     }
-    val hash = abs((mangaId * 31 + title.hashCode()).toInt())
+    val hash = (mangaId * 31 + title.hashCode()).toInt().ushr(1)
     val spineBase = spineColors[hash % spineColors.size]
-    val heightDp = (154 + (hash % 24)).dp
+    val heightDp = (168 + (hash % 24)).dp
     val shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp)
-    val accessibilityLabel = buildString {
-        append(title)
-        if (unreadCount > 0) append(", $unreadCount unread")
-        if (downloadCount > 0) append(", $downloadCount downloaded")
-    }
+    val unreadLabel = stringResource(MR.strings.yomu_home_unread_remaining, unreadCount)
+    val downloadLabel = stringResource(MR.strings.yomu_downloaded_count, downloadCount)
+    val inspectedLabel = stringResource(MR.strings.yomu_tablet_inspected_book)
+    val accessibilityLabel = buildList {
+        add(title)
+        if (unreadCount > 0) add(unreadLabel)
+        if (downloadCount > 0) add(downloadLabel)
+    }.joinToString(", ")
 
     Box(
         modifier = modifier
             .height(heightDp)
             .offset(y = liftY)
             .bringIntoViewRequester(bringIntoViewRequester)
-            .semantics { contentDescription = accessibilityLabel }
+            .semantics {
+                contentDescription = accessibilityLabel
+                if (isInspected) stateDescription = inspectedLabel
+            }
             .shadow(if (isElevated) 10.dp else 4.dp, shape)
             .clip(shape)
             .background(
@@ -893,6 +928,7 @@ fun YomuBookSpineVolume(
                 when {
                     isSelected -> Modifier.border(2.dp, primaryColor, shape)
                     isFocused -> Modifier.border(2.dp, palette.goldAccent, shape)
+                    isInspected -> Modifier.border(2.dp, primaryColor, shape)
                     else -> Modifier.border(0.7.dp, Color.White.copy(alpha = 0.12f), shape)
                 },
             )
@@ -943,21 +979,52 @@ fun YomuBookSpineVolume(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 34.dp, bottom = 22.dp, start = 2.dp, end = 2.dp),
+                .padding(top = 34.dp, bottom = if (onReadNext == null) 22.dp else 53.dp, start = 2.dp, end = 2.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = title,
                 color = YomuColors.WarmIvory,
-                fontSize = 11.sp,
+                fontFamily = YomuSerifFontFamily,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .graphicsLayer { rotationZ = -90f }
-                    .width(heightDp - 58.dp),
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(
+                            constraints.copy(
+                                minWidth = 0,
+                                maxWidth = constraints.maxHeight,
+                                minHeight = 0,
+                                maxHeight = constraints.maxWidth,
+                            ),
+                        )
+                        layout(placeable.height, placeable.width) {
+                            placeable.place(
+                                x = (placeable.height - placeable.width) / 2,
+                                y = (placeable.width - placeable.height) / 2,
+                            )
+                        }
+                    }
+                    .graphicsLayer { rotationZ = -90f },
             )
+        }
+
+        if (onReadNext != null) {
+            IconButton(
+                onClick = onReadNext,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+                    .size(40.dp).yomuFocusHighlight(CircleShape),
+            ) {
+                Icon(
+                    imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
+                    contentDescription = stringResource(MR.strings.yomu_read_next_title, title),
+                    tint = YomuColors.WarmIvory,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
 
         Row(
@@ -975,12 +1042,13 @@ fun YomuBookSpineVolume(
                         .background(palette.sageAccent),
                 )
             }
-            if (readProgress != null && readProgress > 0f) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(primaryColor),
+            if (style.showShelfProgress && readProgress != null && readProgress > 0f) {
+                LinearProgressIndicator(
+                    progress = { readProgress },
+                    modifier = Modifier.width(21.dp).height(4.dp),
+                    color = primaryColor,
+                    trackColor = Color.White.copy(alpha = 0.23f),
+                    drawStopIndicator = {},
                 )
             }
         }

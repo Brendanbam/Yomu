@@ -20,8 +20,10 @@ class GetLibraryManga(
         return mangaRepository.getLibraryManga()
     }
 
+    fun subscribeStrict(): Flow<List<LibraryManga>> = mangaRepository.getLibraryMangaAsFlow()
+
     fun subscribe(): Flow<List<LibraryManga>> {
-        return mangaRepository.getLibraryMangaAsFlow()
+        return subscribeStrict()
             .retry {
                 if (it is NullPointerException) {
                     delay(0.5.seconds)

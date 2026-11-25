@@ -11,11 +11,13 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.YomuHomeSection
+import eu.kanade.domain.yomu.GetYomuOfflineAvailability
 import eu.kanade.domain.yomu.YomuContinueReadingResolver
 import eu.kanade.domain.yomu.YomuContinueReadingState
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,10 +38,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.history.interactor.GetHistory
-import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -64,9 +65,8 @@ class YomuHomeViewModel(
     private val getLibraryManga: GetLibraryManga,
     private val getManga: GetManga,
     private val getUpdates: GetUpdates,
-    private val getChapter: GetChapter,
     private val getChaptersByMangaId: GetChaptersByMangaId,
-    private val getNextChapters: GetNextChapters,
+    private val getYomuOfflineAvailability: GetYomuOfflineAvailability,
     private val getEnabledSources: GetEnabledSources,
     private val sourceManager: SourceManager,
     private val downloadCache: DownloadCache,
@@ -86,7 +86,7 @@ class YomuHomeViewModel(
     }
 
     private val libraryFlow: Flow<SectionLoadState<List<LibraryManga>>> = retryTrigger.flatMapLatest {
-        getLibraryManga.subscribe().asSectionLoadState()
+        getLibraryManga.subscribeStrict().asSectionLoadState()
     }
 
     private val historyFlow: Flow<SectionLoadState<List<HistoryWithRelations>>> = retryTrigger.flatMapLatest {
@@ -96,7 +96,7 @@ class YomuHomeViewModel(
     private val updatesFlow: Flow<SectionLoadState<List<UpdatesWithRelations>>> = retryTrigger.flatMapLatest {
         getUpdates.subscribe(
             instant = Clock.System.now().minus(1, DateTimeUnit.MONTH, TimeZone.currentSystemDefault()),
-            unread = null,
+            unread = true,
             started = null,
             bookmarked = null,
             hideExcludedScanlators = false,
@@ -117,12 +117,20 @@ class YomuHomeViewModel(
         .map { it.size }
         .distinctUntilChanged()
 
+    private val offlineSnapshotFlow = combine(libraryFlow, downloadSignalFlow) { libraryState, _ ->
+        val library = libraryState.dataOrEmpty()
+        val counts = downloadCache.getDownloadCounts(library.map { it.manga })
+        val availability = getYomuOfflineAvailability.await(library, counts)
+        Triple(libraryState, counts, availability)
+    }
+
     val state: StateFlow<State> = combine(
-        combine(libraryFlow, historyFlow, updatesFlow, ::Triple),
-        combine(sourcesFlow, downloadSignalFlow, activeDownloadCountFlow, ::Triple),
+        combine(offlineSnapshotFlow, historyFlow, updatesFlow, ::Triple),
+        combine(sourcesFlow, activeDownloadCountFlow, ::Pair),
         uiPreferences.yomuHomeSectionsOrder.changes(),
-    ) { (libraryState, historyState, updatesState), (sourcesState, _, activeDownloadsCount), sectionsOrderRaw ->
-        val isInitialLoading = libraryState is SectionLoadState.Loading &&
+    ) { (snapshot, historyState, updatesState), (sourcesState, activeDownloadsCount), sectionsOrderRaw ->
+        val (libraryState, downloadCountsByMangaId, offlineAvailability) = snapshot
+        val isInitialLoading = libraryState is SectionLoadState.Loading ||
             historyState is SectionLoadState.Loading
 
         val libraryList = libraryState.dataOrEmpty()
@@ -131,26 +139,28 @@ class YomuHomeViewModel(
         val sources = sourcesState.dataOrEmpty()
 
         val libraryById = libraryList.associateBy { it.id }
-        val downloadCountsByMangaId = if (libraryList.isNotEmpty()) {
-            downloadCache.getDownloadCounts(libraryList.map { it.manga })
-        } else {
-            emptyMap()
-        }
 
         val now = Clock.System.now()
         val rediscoverCutoff = now - 14.days
 
         // Resolve Continue Reading across recent history candidates using Mihon's GetNextChapters semantics
-        val continueCandidates = historyList.take(8).map { history ->
-            buildContinueCandidate(history = history, libraryEntry = libraryById[history.mangaId])
+        var continueLookupError: Exception? = null
+        val continueCandidates = historyList.distinctBy { it.mangaId }.take(8).mapNotNull { history ->
+            try {
+                buildContinueCandidate(history = history, libraryEntry = libraryById[history.mangaId])
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                logcat(LogPriority.ERROR, error) { "Failed to resolve Continue Reading" }
+                continueLookupError = error
+                null
+            }
         }
         val continueReading = YomuContinueReadingResolver.selectBest(continueCandidates)
 
-        val featuredLib = libraryList
-            .sortedByDescending {
-                it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
-            }
-            .firstOrNull()
+        val featuredLib = libraryList.maxByOrNull {
+            it.lastRead?.toEpochMilliseconds() ?: it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
+        }
 
         val heroCover = continueReading?.coverData
             ?: featuredLib?.let { lib ->
@@ -165,9 +175,9 @@ class YomuHomeViewModel(
         val heroTitle = continueReading?.title ?: featuredLib?.manga?.title
         val heroMangaId = continueReading?.mangaId ?: featuredLib?.manga?.id
 
-        // Prioritize unread updates first while preserving chronological order within unread/read groups
+        // The new-arrivals shelf represents unread releases, not previously read chapters.
         val recentlyUpdated = updatesList
-            .sortedWith(compareBy<UpdatesWithRelations> { it.read })
+            .filterNot { it.read }
             .distinctBy { it.mangaId }
             .take(12)
             .map { u ->
@@ -190,8 +200,8 @@ class YomuHomeViewModel(
                 )
             }
 
-        val currentlyReading = libraryList
-            .filter { it.hasStarted && it.unreadCount > 0L }
+        val inProgress = libraryList.filter { (it.hasStarted || it.lastRead != null) && it.unreadCount > 0L }
+        val currentlyReading = inProgress
             .sortedByDescending { it.lastRead?.toEpochMilliseconds() ?: 0L }
             .take(9)
             .map { toShelfBook(it, downloadCountsByMangaId) }
@@ -206,18 +216,9 @@ class YomuHomeViewModel(
             .take(9)
             .map { toShelfBook(it, downloadCountsByMangaId) }
 
-        val offlineItems = libraryList.mapNotNull { lib ->
-            val dlCount = if (lib.manga.isLocal()) {
-                lib.totalChapters.toInt()
-            } else {
-                downloadCountsByMangaId[lib.manga.id] ?: 0
-            }
-            if (dlCount > 0 || lib.manga.isLocal()) {
-                toShelfBook(lib, downloadCountsByMangaId)
-            } else {
-                null
-            }
-        }
+        val offlineItems = libraryList.distinctBy { it.id }
+            .filter { offlineAvailability[it.id]?.nextUnreadDownloaded == true }
+            .map { toShelfBook(it, downloadCountsByMangaId) }
 
         val pinnedSources = sources
             .filter { Pin.Actual in it.pin || it.isUsedLast }
@@ -226,7 +227,7 @@ class YomuHomeViewModel(
 
         val readingStats = ReadingStats(
             libraryCount = libraryList.size,
-            currentlyReadingCount = libraryList.count { it.hasStarted && it.unreadCount > 0L },
+            currentlyReadingCount = inProgress.size,
             completedSeriesCount = libraryList.count {
                 it.totalChapters > 0L && it.unreadCount == 0L &&
                     (
@@ -244,12 +245,14 @@ class YomuHomeViewModel(
         State(
             isLoading = isInitialLoading,
             libraryError = (libraryState as? SectionLoadState.Error)?.message,
-            historyError = (historyState as? SectionLoadState.Error)?.message,
+            historyError = (historyState as? SectionLoadState.Error)?.message ?: continueLookupError?.message,
             updatesError = (updatesState as? SectionLoadState.Error)?.message,
             sourcesError = (sourcesState as? SectionLoadState.Error)?.message,
             hasLibraryError = libraryState is SectionLoadState.Error,
-            hasHistoryError = historyState is SectionLoadState.Error,
+            hasHistoryError = historyState is SectionLoadState.Error ||
+                (continueLookupError != null && continueReading == null),
             hasUpdatesError = updatesState is SectionLoadState.Error,
+            hasSourcesError = sourcesState is SectionLoadState.Error,
             heroCover = heroCover,
             heroTitle = heroTitle,
             heroMangaId = heroMangaId,
@@ -275,44 +278,21 @@ class YomuHomeViewModel(
         history: HistoryWithRelations,
         libraryEntry: LibraryManga?,
     ): YomuContinueReadingResolver.CandidateInput {
-        val manga = libraryEntry?.manga ?: runCatching { getManga.await(history.mangaId) }.getOrNull()
-        val lastReadChapter = runCatching { getChapter.await(history.chapterId) }.getOrNull()
-
-        // Match Mihon's exact chapter resume order:
-        // 1) Next unread chapter from the last read chapter onward (skipping any already-read chapters)
-        // 2) If none remain after lastReadChapter, fall back to any remaining unread chapter in the series
-        val nextAfterCurrent = runCatching {
-            getNextChapters.await(
-                mangaId = history.mangaId,
-                fromChapterId = history.chapterId,
-                onlyUnread = false,
-            ).firstOrNull { !it.read }
-        }.getOrNull()
-
-        val nextResumable = nextAfterCurrent ?: runCatching {
-            getNextChapters.await(mangaId = history.mangaId, onlyUnread = true).firstOrNull()
-        }.getOrNull()
-
-        val readChaptersCount: Long
-        val totalChaptersCount: Long
-        if (libraryEntry != null) {
-            readChaptersCount = libraryEntry.readCount
-            totalChaptersCount = libraryEntry.totalChapters
-        } else {
-            val allChapters = runCatching {
-                getChaptersByMangaId.await(history.mangaId, applyScanlatorFilter = true)
-            }.getOrDefault(emptyList())
-            totalChaptersCount = allChapters.size.toLong()
-            readChaptersCount = allChapters.count { it.read }.toLong()
-        }
+        val manga = libraryEntry?.manga ?: getManga.awaitStrict(history.mangaId)
+        // One strict, scanlator-filtered snapshot: lookup errors must not become caught-up cards.
+        val chapters = getChaptersByMangaId.awaitStrict(history.mangaId, applyScanlatorFilter = true)
+            .sortedWith(getChapterSort(manga, sortDescending = false))
+        val lastReadChapter = chapters.firstOrNull { it.id == history.chapterId }
+        val nextResumable = YomuContinueReadingResolver.nextUnreadAfterHistory(chapters, history.chapterId)
+        val totalChaptersCount = chapters.size.toLong()
+        val readChaptersCount = chapters.count { it.read }.toLong()
 
         val targetChapter = nextResumable ?: lastReadChapter
-        val isLocal = manga?.isLocal() == true
+        val isLocal = manga.isLocal()
         val isSourceAvailable = if (isLocal) {
             true
         } else {
-            val sourceId = manga?.source ?: history.coverData.sourceId
-            sourceManager.get(sourceId) != null
+            sourceManager.get(manga.source) != null
         }
 
         val isTargetDownloaded = when {
@@ -322,16 +302,16 @@ class YomuHomeViewModel(
                 chapterName = targetChapter.name,
                 chapterScanlator = targetChapter.scanlator,
                 chapterUrl = targetChapter.url,
-                mangaTitle = manga?.title ?: history.title,
-                sourceId = manga?.source ?: history.coverData.sourceId,
+                mangaTitle = manga.title,
+                sourceId = manga.source,
             )
         }
 
         return YomuContinueReadingResolver.CandidateInput(
             mangaId = history.mangaId,
-            title = manga?.title ?: history.title,
+            title = manga.title,
             coverData = history.coverData,
-            isInLibrary = libraryEntry != null || manga?.favorite == true,
+            isInLibrary = manga.favorite,
             isSourceAvailable = isSourceAvailable,
             lastReadChapter = lastReadChapter,
             nextResumableChapter = nextResumable,
@@ -371,6 +351,17 @@ class YomuHomeViewModel(
             hasBookmarks = lib.hasBookmarks,
         )
     }
+
+    fun pickRandomManga(): Long? {
+        val home = state.value
+        val candidates = home.rediscover.ifEmpty { home.currentlyReading }.ifEmpty { home.offlineCollection }
+        val picked = candidates.filterNot { it.mangaId == previousRandomManga }.ifEmpty { candidates }.randomOrNull()
+        val id = picked?.mangaId ?: home.heroMangaId
+        previousRandomManga = id
+        return id
+    }
+
+    private var previousRandomManga: Long? = null
 
     fun retry() {
         retryTrigger.update { it + 1 }
@@ -428,6 +419,7 @@ class YomuHomeViewModel(
         val hasLibraryError: Boolean = false,
         val hasHistoryError: Boolean = false,
         val hasUpdatesError: Boolean = false,
+        val hasSourcesError: Boolean = false,
         val libraryError: String? = null,
         val historyError: String? = null,
         val updatesError: String? = null,
@@ -461,6 +453,8 @@ class YomuHomeViewModel(
             get() = !isLoading &&
                 !hasLibraryError &&
                 !hasHistoryError &&
+                !hasUpdatesError &&
+                !hasSourcesError &&
                 !areAllSectionsHidden &&
                 continueReading == null &&
                 recentlyUpdated.isEmpty() &&

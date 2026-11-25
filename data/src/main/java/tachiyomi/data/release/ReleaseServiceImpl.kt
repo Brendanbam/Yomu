@@ -53,14 +53,14 @@ class ReleaseServiceImpl(
     companion object {
         private const val FOSS = "foss"
         private const val UNIVERSAL = "universal"
-        private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        private val KNOWN_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
 
         /**
          * Selects the best matching APK asset from a GitHub release:
          * - Only `.apk` assets are considered (checksums/notes are ignored).
-         * - FOSS builds only match `-foss` APKs.
-         * - Standard builds walk [supportedAbis] in device priority order, falling back
-         *   to `-universal.apk` or an untagged generic APK.
+         * - FOSS builds only match explicitly marked FOSS APKs.
+         * - Builds walk supported device ABIs in priority order, falling back only
+         *   to an explicitly named universal APK for a supported architecture.
          */
         fun selectDownloadLink(
             assets: List<GitHubAsset>,
@@ -70,29 +70,30 @@ class ReleaseServiceImpl(
             val apkAssets = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
             if (apkAssets.isEmpty()) return null
 
-            if (isFoss) {
-                return apkAssets.firstOrNull { "-$FOSS" in it.name.lowercase() }?.downloadLink
+            val channelApks = apkAssets.filter { asset ->
+                val tokens = asset.name.lowercase().removeSuffix(".apk").split('-')
+                (FOSS in tokens) == isFoss
             }
+            if (channelApks.isEmpty()) return null
 
-            val standardApks = apkAssets.filterNot { "-$FOSS" in it.name.lowercase() }
-            if (standardApks.isEmpty()) return null
-
-            for (abi in supportedAbis) {
-                val abiLower = abi.lowercase()
-                val match = standardApks.firstOrNull { "-$abiLower" in it.name.lowercase() }
+            val compatibleAbis = supportedAbis.map { it.lowercase() }.filter { it in KNOWN_ABIS }
+            if (compatibleAbis.isEmpty()) return null
+            for (abiLower in compatibleAbis) {
+                val match = channelApks.firstOrNull { asset ->
+                    asset.name.lowercase().removeSuffix(".apk").removeSuffix("-$FOSS").endsWith("-$abiLower")
+                }
                 if (match != null) return match.downloadLink
             }
 
             // Explicit universal fallback
-            standardApks.firstOrNull { "-$UNIVERSAL" in it.name.lowercase() }?.let {
+            channelApks.firstOrNull { asset ->
+                asset.name.lowercase().removeSuffix(".apk").removeSuffix("-$FOSS").endsWith("-$UNIVERSAL")
+            }?.let {
                 return it.downloadLink
             }
 
-            // Generic APK without a specific ABI suffix
-            return standardApks.firstOrNull { asset ->
-                val lower = asset.name.lowercase()
-                KNOWN_ABIS.none { "-$it" in lower }
-            }?.downloadLink
+            // Unknown APK naming cannot establish installation compatibility.
+            return null
         }
 
         /**

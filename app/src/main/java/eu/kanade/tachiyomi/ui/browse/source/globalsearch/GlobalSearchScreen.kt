@@ -26,6 +26,7 @@ fun GlobalSearchScreen(
             create(initialQuery = searchQuery, initialExtensionFilter = extensionFilter)
         }
     val state by viewModel.state.collectAsState()
+    val libraryMatches by viewModel.libraryMatches.collectAsState()
     var showSingleLoadingScreen by remember {
         mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty() && state.total == 1)
     }
@@ -51,9 +52,14 @@ fun GlobalSearchScreen(
     } else {
         GlobalSearchScreen(
             state = state,
+            libraryMatches = libraryMatches,
+            onClickLibraryItem = { navigator.push(MangaRoute(it.id)) },
             navigateUp = navigator::pop,
             onChangeSearchQuery = viewModel::updateSearchQuery,
-            onSearch = { viewModel.search() },
+            onSearch = { query ->
+                viewModel.updateSearchQuery(query)
+                viewModel.search()
+            },
             getManga = { viewModel.getManga(it) },
             onChangeSearchFilter = viewModel::setSourceFilter,
             onToggleResults = viewModel::toggleFilterResults,

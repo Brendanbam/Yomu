@@ -15,15 +15,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +76,8 @@ internal fun LibraryItem.toSmartShelfEntry(): SmartShelfEntry {
         latestUpload = lib.latestUpload,
         chapterFetchedAt = lib.chapterFetchedAt,
         lastRead = lib.lastRead,
-        hasNextReadableChapterDownloaded = isLocal || (unreadCount > 0L && downloadCount > 0),
+        hasNextReadableChapterDownloaded = hasNextReadableChapterDownloaded,
+        hasFullOfflineArchive = hasFullOfflineArchive,
     )
 }
 
@@ -106,6 +117,38 @@ internal fun SmartShelvesChipRow(
 }
 
 /**
+ * Row identities change when the inspector is resized or a device rotates.
+ * Save the first visible book's identity, not just its old row index.
+ */
+@Composable
+private fun rememberShelfListState(
+    items: List<LibraryItem>,
+    booksPerRow: Int,
+    hasSearchHeader: Boolean,
+): LazyListState {
+    val state = rememberLazyListState()
+    var anchorId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var previousColumns by rememberSaveable { mutableIntStateOf(booksPerRow) }
+    val headerRows = if (hasSearchHeader) 1 else 0
+
+    LaunchedEffect(items, booksPerRow, headerRows) {
+        if (previousColumns != booksPerRow) {
+            val anchor = anchorId
+            val index = items.indexOfFirst { it.id == anchor }
+            if (index >= 0) {
+                state.scrollToItem(index / booksPerRow + headerRows)
+            }
+            previousColumns = booksPerRow
+        }
+        snapshotFlow { state.firstVisibleItemIndex }.collect { row ->
+            val bookIndex = (row - headerRows) * booksPerRow
+            anchorId = items.getOrNull(bookIndex)?.id
+        }
+    }
+    return state
+}
+
+/**
  * Signature Yomu Bookshelf layout (Classic Bookshelf & Collector Edition).
  * Uses [BoxWithConstraints] against the actual available layout width so split-screen,
  * foldables, tablets, and split-pane layouts calculate exact column counts safely.
@@ -122,19 +165,20 @@ internal fun LibraryWoodenBookshelf(
     onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
     val rowSpacing = if (collectorEdition) 18.dp else 12.dp
     val sidePad = if (collectorEdition) 20.dp else 14.dp
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(240)
+        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(1)
         val minBookWidthDp = if (collectorEdition) 118 else 84
         val maxSafeColumns = (
             (availableWidthDp - sidePad.value.toInt() * 2 + rowSpacing.value.toInt()) /
                 (minBookWidthDp + rowSpacing.value.toInt())
             )
-            .coerceIn(2, 10)
+            .coerceIn(1, 10)
 
         val booksPerRow = remember(columns, collectorEdition, availableWidthDp, maxSafeColumns) {
             when {
@@ -154,8 +198,10 @@ internal fun LibraryWoodenBookshelf(
         }
 
         val rows = remember(items, booksPerRow) { items.chunked(booksPerRow) }
+        val listState = rememberShelfListState(items, booksPerRow, !searchQuery.isNullOrEmpty())
 
         FastScrollLazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(style.shelfPalette.alcoveBackBottom),
@@ -173,11 +219,11 @@ internal fun LibraryWoodenBookshelf(
                 }
             }
 
-            items(
-                items = rows.withIndex().toList(),
-                key = { (rowIdx, rowItems) -> "shelf_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-                contentType = { "yomu_bookshelf_row" },
-            ) { (rowIndex, rowItems) ->
+            itemsIndexed(
+                items = rows,
+                key = { _, books -> "shelf_${books.first().id}" },
+                contentType = { _, _ -> "yomu_bookshelf_row" },
+            ) { rowIndex, rowItems ->
                 YomuBookshelfTier(
                     rowIndex = rowIndex,
                     horizontalPadding = sidePad,
@@ -213,6 +259,7 @@ internal fun LibraryWoodenBookshelf(
                                     readProgress = progress,
                                     hasBookmarks = libManga.hasBookmarks,
                                     isSelected = manga.id in selection,
+                                    isInspected = manga.id == inspectedMangaId,
                                     showTitle = style.showShelfTitles,
                                     showProgress = style.showShelfProgress,
                                     collectorMode = collectorEdition,
@@ -245,6 +292,7 @@ internal fun LibraryWoodenBookshelf(
 @Composable
 internal fun LibraryBookSpineShelf(
     items: List<LibraryItem>,
+    onClickContinueReading: ((LibraryManga) -> Unit)?,
     columns: Int,
     contentPadding: PaddingValues,
     selection: Set<Long>,
@@ -252,23 +300,26 @@ internal fun LibraryBookSpineShelf(
     onLongClick: (LibraryManga) -> Unit,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    inspectedMangaId: Long? = null,
 ) {
     val style = LocalYomuStyle.current
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(240)
-        val maxSafeSpines = ((availableWidthDp - 24) / 44).coerceIn(4, 16)
+        val availableWidthDp = maxWidth.value.toInt().coerceAtLeast(1)
+        val maxSafeSpines = ((availableWidthDp - 24 + 4) / 52).coerceIn(1, 16)
         val spinesPerRow = remember(columns, availableWidthDp, maxSafeSpines) {
             when {
-                columns > 0 -> (columns * 2).coerceIn(4, maxSafeSpines)
+                columns > 0 -> (columns.coerceAtMost(8) * 2).coerceIn(1, maxSafeSpines)
                 availableWidthDp >= 900 -> 14
                 availableWidthDp >= 600 -> 10
                 else -> 7
             }.coerceAtMost(maxSafeSpines)
         }
         val rows = remember(items, spinesPerRow) { items.chunked(spinesPerRow) }
+        val listState = rememberShelfListState(items, spinesPerRow, !searchQuery.isNullOrEmpty())
 
         FastScrollLazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(style.shelfPalette.alcoveBackBottom),
@@ -286,11 +337,11 @@ internal fun LibraryBookSpineShelf(
                 }
             }
 
-            items(
-                items = rows.withIndex().toList(),
-                key = { (rowIdx, rowItems) -> "spine_row_${rowIdx}_${rowItems.firstOrNull()?.id ?: 0L}" },
-                contentType = { "yomu_spine_row" },
-            ) { (rowIndex, rowItems) ->
+            itemsIndexed(
+                items = rows,
+                key = { _, books -> "spine_row_${books.first().id}" },
+                contentType = { _, _ -> "yomu_spine_row" },
+            ) { rowIndex, rowItems ->
                 YomuBookshelfTier(
                     rowIndex = rowIndex,
                     horizontalPadding = 12.dp,
@@ -314,10 +365,13 @@ internal fun LibraryBookSpineShelf(
                                 YomuBookSpineVolume(
                                     mangaId = manga.id,
                                     title = manga.title,
+                                    onReadNext = onClickContinueReading?.takeIf { libManga.unreadCount > 0 }
+                                        ?.let { action -> { action(libManga) } },
                                     unreadCount = libraryItem.badges.unreadCount,
                                     downloadCount = libraryItem.badges.downloadCount,
                                     readProgress = progress,
                                     isSelected = manga.id in selection,
+                                    isInspected = manga.id == inspectedMangaId,
                                     onClick = { onClick(libManga) },
                                     onLongClick = { onLongClick(libManga) },
                                     modifier = Modifier.weight(1f),

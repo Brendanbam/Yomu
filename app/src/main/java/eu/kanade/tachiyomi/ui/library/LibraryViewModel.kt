@@ -17,6 +17,8 @@ import eu.kanade.core.util.fastFilterNot
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.yomu.GetYomuOfflineAvailability
+import eu.kanade.domain.yomu.YomuOfflineAvailability
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -88,6 +90,7 @@ class LibraryViewModel(
     private val getNextChapters: GetNextChapters,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId,
+    private val getYomuOfflineAvailability: GetYomuOfflineAvailability,
     private val setReadStatus: SetReadStatus,
     private val updateManga: UpdateManga,
     private val setMangaCategories: SetMangaCategories,
@@ -415,18 +418,25 @@ class LibraryViewModel(
     }
 
     private fun getFavoritesFlow(): Flow<List<LibraryItem>> {
-        return combine(
+        val availabilityFlow = combine(
             getLibraryManga.subscribe(),
-            getLibraryItemPreferencesFlow(),
             downloadCache.changes.pausedWhileUnsubscribed(),
-        ) { libraryManga, preferences, _ ->
+        ) { libraryManga, _ ->
+            val counts = downloadManager.getDownloadCounts(libraryManga.map { it.manga })
+            val availability = getYomuOfflineAvailability.await(libraryManga, counts, checkFullArchive = true)
+            Triple(libraryManga, counts, availability)
+        }
+        return combine(
+            availabilityFlow,
+            getLibraryItemPreferencesFlow(),
+        ) { (libraryManga, downloadCounts, offline), preferences ->
             val sources = libraryManga
                 .mapTo(mutableSetOf()) { it.manga.source }
                 .associateWith { sourceManager.getOrStub(it) }
-            val downloadCounts = downloadManager.getDownloadCounts(libraryManga.map { it.manga })
             libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadCounts.getValue(manga.id)
+                val offlineAvailability = offline[manga.id] ?: YomuOfflineAvailability()
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadCount,
@@ -434,6 +444,8 @@ class LibraryViewModel(
                     isLocal = manga.manga.isLocal(),
                     sourceName = source.name.lowercase(),
                     sourceLanguage = source.lang,
+                    hasNextReadableChapterDownloaded = offlineAvailability.nextUnreadDownloaded,
+                    hasFullOfflineArchive = offlineAvailability.allChaptersDownloaded,
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {
                             downloadCount

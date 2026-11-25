@@ -93,7 +93,7 @@ fun SourcesScreen(
                 state.items
                     .filterIsInstance<SourceUiModel.Item>()
                     .map { it.source }
-                    .filter { Pin.Actual in it.pin || it.isUsedLast }
+                    .filter { Pin.Pinned in it.pin }
                     .distinctBy { it.id }
             }
 

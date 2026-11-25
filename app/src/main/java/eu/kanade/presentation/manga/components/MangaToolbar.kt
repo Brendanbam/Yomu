@@ -17,6 +17,7 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DownloadDropdownMenu
 import eu.kanade.presentation.manga.DownloadAction
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -47,6 +48,7 @@ fun MangaToolbar(
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
+    onExpandPane: (() -> Unit)? = null,
 ) {
     val isActionMode = actionModeCounter > 0
     AppBar(
@@ -92,6 +94,15 @@ fun MangaToolbar(
                             ),
                         )
                         return@buildList
+                    }
+                    if (onExpandPane != null) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.yomu_details_open_full),
+                                icon = MaterialSymbols.AutoMirroredRounded.OpenInNew,
+                                onClick = onExpandPane,
+                            ),
+                        )
                     }
                     if (onClickDownload != null) {
                         add(

@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import eu.kanade.domain.ui.model.ThemeMode
 import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.domain.ui.model.YomuAccentColor
 import eu.kanade.domain.ui.model.YomuShelfMaterial
+import eu.kanade.domain.ui.model.YomuShelfPreset
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.Preference
@@ -92,6 +95,23 @@ data object SettingsAppearanceScreen : SearchableSettings {
                     title = stringResource(MR.strings.yomu_pref_preview_shelf),
                 ) {
                     YomuLiveBookshelfPreview()
+                },
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(MR.strings.yomu_shelf_presets),
+                ) {
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        YomuShelfPreset.entries.forEach { preset ->
+                            item(key = preset.name) {
+                                AssistChip(
+                                    onClick = { uiPreferences.applyShelfPreset(preset) },
+                                    label = { Text(stringResource(preset.titleRes)) },
+                                )
+                            }
+                        }
+                    }
                 },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = uiPreferences.startOnLibrary,

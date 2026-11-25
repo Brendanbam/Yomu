@@ -184,7 +184,7 @@ data object SettingsDownloadScreen : SearchableSettings {
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.autoDownloadWhileReading,
-                    entries = listOf(0, 2, 3, 5, 10)
+                    entries = listOf(0, 1, 2, 3, 5, 10)
                         .associateWith {
                             if (it == 0) {
                                 stringResource(MR.strings.disabled)
@@ -194,7 +194,7 @@ data object SettingsDownloadScreen : SearchableSettings {
                         },
                     title = stringResource(MR.strings.auto_download_while_reading),
                 ),
-                Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.download_ahead_info)),
+                Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.yomu_download_ahead_info)),
             ),
         )
     }

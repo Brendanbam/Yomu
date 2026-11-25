@@ -91,6 +91,7 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Error
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.FilterList
+import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.QueryStats
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Schedule
@@ -117,6 +118,7 @@ fun YomuHomeScreen(
     onClickDownloads: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
+    onClickRandom: () -> Unit,
     onClickRestoreBackup: () -> Unit,
     onClickSource: (Long) -> Unit,
     onRetry: () -> Unit,
@@ -407,7 +409,20 @@ fun YomuHomeScreen(
                                             )
                                         }
 
-                                        if (state.pinnedSources.isNotEmpty()) {
+                                        if (state.heroMangaId != null) {
+                                            YomuShortcutBar(
+                                                title = stringResource(MR.strings.yomu_surprise_me),
+                                                icon = MaterialSymbols.Rounded.LocalLibrary,
+                                                onClick = onClickRandom,
+                                            )
+                                        }
+
+                                        if (state.hasSourcesError) {
+                                            InlineSectionErrorBanner(
+                                                sectionName = stringResource(MR.strings.label_sources),
+                                                onRetry = onRetry,
+                                            )
+                                        } else if (state.pinnedSources.isNotEmpty()) {
                                             LazyRow(
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                 modifier = Modifier.padding(top = 4.dp),
@@ -594,7 +609,7 @@ private fun ContinueReadingCard(
     val progressTarget = item.seriesProgressFraction
     val animatedProgress by animateFloatAsState(
         targetValue = (progressTarget ?: 0f).coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = if (style.reducedMotion) 0 else 400),
+        animationSpec = tween(durationMillis = (400 * style.effectiveMotionScale).toInt()),
         label = "continueSeriesProgress",
     )
 
@@ -740,6 +755,7 @@ private fun ContinueReadingCard(
 
             Surface(
                 onClick = onClickResume,
+                enabled = item.isSourceAvailable || item.isTargetChapterDownloaded,
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                 border = BorderStroke(1.8.dp, MaterialTheme.colorScheme.primary),

@@ -107,7 +107,7 @@ private val ReaderGrayBackgroundColor = Color.rgb(0x20, 0x21, 0x25)
  */
 fun Context.readerBackgroundColor(readerTheme: ReaderPreferences.ReaderTheme): Int = when (readerTheme) {
     ReaderPreferences.ReaderTheme.WHITE -> Color.WHITE
-    ReaderPreferences.ReaderTheme.BLACK -> Color.BLACK
+    ReaderPreferences.ReaderTheme.BLACK, ReaderPreferences.ReaderTheme.AMOLED -> Color.BLACK
     ReaderPreferences.ReaderTheme.GRAY -> ReaderGrayBackgroundColor
     ReaderPreferences.ReaderTheme.AUTOMATIC -> if (isNightMode()) ReaderGrayBackgroundColor else Color.WHITE
 }
@@ -124,7 +124,10 @@ fun Context.createReaderThemeContext(): Context {
     val readerPreferences = graph.readerPreferences
     val themeMode = preferences.themeMode.get()
     val isDarkBackground = when (ReaderPreferences.ReaderTheme.fromValue(readerPreferences.readerTheme.get())) {
-        ReaderPreferences.ReaderTheme.BLACK, ReaderPreferences.ReaderTheme.GRAY -> true
+        ReaderPreferences.ReaderTheme.BLACK,
+        ReaderPreferences.ReaderTheme.GRAY,
+        ReaderPreferences.ReaderTheme.AMOLED,
+        -> true
         // Automatic bg uses activity background by default
         ReaderPreferences.ReaderTheme.AUTOMATIC -> when (themeMode) {
             ThemeMode.SYSTEM -> applicationContext.isNightMode()

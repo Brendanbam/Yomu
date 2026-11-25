@@ -24,6 +24,7 @@ class YomuSmartShelfClassifierTest {
         chapterFetchedAt: Instant? = null,
         lastRead: Instant? = null,
         hasNextReadableChapterDownloaded: Boolean = false,
+        hasFullOfflineArchive: Boolean = false,
     ) = SmartShelfEntry(
         id = id,
         totalChapters = totalChapters,
@@ -36,7 +37,15 @@ class YomuSmartShelfClassifierTest {
         chapterFetchedAt = chapterFetchedAt,
         lastRead = lastRead,
         hasNextReadableChapterDownloaded = hasNextReadableChapterDownloaded,
+        hasFullOfflineArchive = hasFullOfflineArchive,
     )
+
+    @Test
+    fun `reading the first chapter counts as currently reading`() {
+        val started = entry(lastRead = fixedNow)
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.CURRENTLY_READING, started, fixedNow).shouldBeTrue()
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.CURRENTLY_READING, entry(), fixedNow).shouldBeFalse()
+    }
 
     @Test
     fun `separates completed publication, caught up, and finished reading accurately`() {
@@ -140,6 +149,7 @@ class YomuSmartShelfClassifierTest {
             readCount = 2L,
             downloadCount = 10,
             hasNextReadableChapterDownloaded = true,
+            hasFullOfflineArchive = true,
         )
         val noneDownloaded = entry(id = 4L, totalChapters = 10L, readCount = 2L, downloadCount = 0)
 
@@ -154,6 +164,16 @@ class YomuSmartShelfClassifierTest {
 
         YomuSmartShelfClassifier.matches(YomuSmartShelf.READY_OFFLINE, noneDownloaded, fixedNow).shouldBeFalse()
         YomuSmartShelfClassifier.matches(YomuSmartShelf.FULLY_DOWNLOADED, noneDownloaded, fixedNow).shouldBeFalse()
+    }
+
+    @Test
+    fun `downloaded read chapters never imply the next chapter is ready offline`() {
+        val misleadingCount = entry(totalChapters = 20L, readCount = 10L, downloadCount = 10)
+        val singleReadDownload = entry(totalChapters = 20L, readCount = 10L, downloadCount = 1)
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.READY_OFFLINE, misleadingCount, fixedNow).shouldBeFalse()
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.READY_OFFLINE, singleReadDownload, fixedNow).shouldBeFalse()
+        val staleArchiveCount = entry(totalChapters = 10L, downloadCount = 10)
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.FULLY_DOWNLOADED, staleArchiveCount, fixedNow).shouldBeFalse()
     }
 
     @Test

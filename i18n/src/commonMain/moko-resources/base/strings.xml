@@ -1210,6 +1210,9 @@
     <string name="yomu_quick_mark_unread">Mark all unread</string>
     <string name="yomu_details_download_options">Download options</string>
     <string name="yomu_details_open_full">Open full screen</string>
+    <string name="yomu_tablet_resize_panels">Resize library and manga details panels</string>
+    <string name="yomu_tablet_inspected_book">Details open</string>
+    <string name="yomu_downloaded_count">%1$d downloaded</string>
     <string name="yomu_details_select_book_prompt">Select a volume from the bookshelf to inspect its chapters and details.</string>
     <string name="yomu_tracking_active_count">%1$d active trackers</string>
     <string name="yomu_tracking_none_active">No trackers linked yet</string>
@@ -1226,4 +1229,19 @@
     <string name="yomu_browse_manage">Manage</string>
     <string name="yomu_browse_all_sources">Installed Sources</string>
     <string name="yomu_browse_local_manga">Local Manga</string>
+    <string name="yomu_unified_search">Search library and sources</string>
+    <string name="yomu_search_library_results">In your library</string>
+    <string name="yomu_shelf_presets">Shelf appearance presets</string>
+    <string name="yomu_category_shelf_design">This categoryâ€™s shelf material</string>
+    <string name="yomu_inherit_shelf_design">Use app setting</string>
+    <string name="yomu_read_next_title">Read next chapter of %1$s</string>
+    <string name="yomu_surprise_me">Surprise me</string>
+    <string name="yomu_download_ahead_info">While you read a title in your library, Yomu queues the next unread chapters using your download and network settings.</string>
+    <string name="yomu_amoled_reading_room">AMOLED reading room</string>
+    <string name="yomu_reading_goal">Reading goal</string>
+    <string name="yomu_titles_read_week">%1$d distinct titles read in the last 7 days</string>
+    <string name="yomu_goal_titles_target">7-day title target</string>
+    <string name="yomu_collection_growth">Collection growth</string>
+    <string name="yomu_added_this_week">Added in the last 7 days</string>
+    <string name="yomu_widget_empty">Open Yomu to start reading</string>
 </resources>

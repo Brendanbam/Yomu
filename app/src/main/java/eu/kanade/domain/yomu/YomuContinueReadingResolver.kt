@@ -80,6 +80,12 @@ object YomuContinueReadingResolver {
      *    still exists, reports an honest caught-up state referencing the last read chapter (returns
      *    null if even the last chapter was deleted/migrated away).
      */
+    internal fun nextUnreadAfterHistory(chapters: List<Chapter>, historyChapterId: Long): Chapter? {
+        val start = chapters.indexOfFirst { it.id == historyChapterId }.coerceAtLeast(0)
+        return chapters.asSequence().drop(start).firstOrNull { !it.read }
+            ?: chapters.firstOrNull { !it.read }
+    }
+
     fun resolve(input: CandidateInput): YomuContinueReadingState? {
         val target = input.nextResumableChapter ?: input.lastReadChapter ?: return null
         val isCaughtUp = input.nextResumableChapter == null && target.read
@@ -127,16 +133,17 @@ object YomuContinueReadingResolver {
      */
     fun selectBest(candidates: List<CandidateInput>): YomuContinueReadingState? {
         var firstCaughtUp: YomuContinueReadingState? = null
+        var firstUnavailable: YomuContinueReadingState? = null
         for (candidate in candidates) {
             val resolved = resolve(candidate) ?: continue
             if (!resolved.isCaughtUp) {
-                return resolved
-            }
-            if (firstCaughtUp == null) {
+                if (resolved.isSourceAvailable || resolved.isTargetChapterDownloaded) return resolved
+                if (firstUnavailable == null) firstUnavailable = resolved
+            } else if (firstCaughtUp == null) {
                 firstCaughtUp = resolved
             }
         }
-        return firstCaughtUp
+        return firstUnavailable ?: firstCaughtUp
     }
 
     internal fun formatChapterLabel(chapter: Chapter): String {

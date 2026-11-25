@@ -63,8 +63,9 @@ class YomuVersioningAndUpdaterTest {
         ReleaseServiceImpl.selectDownloadLink(assets, listOf("x86_64", "x86"), isFoss = false) shouldBe
             "https://example/x86_64.apk"
 
-        // Unsupported ABI falls back cleanly to universal APK
-        ReleaseServiceImpl.selectDownloadLink(assets, listOf("riscv64"), isFoss = false) shouldBe
+        // Universal APK only contains the four published architectures.
+        ReleaseServiceImpl.selectDownloadLink(assets, listOf("riscv64"), isFoss = false).shouldBeNull()
+        ReleaseServiceImpl.selectDownloadLink(assets.take(2), listOf("arm64-v8a"), isFoss = false) shouldBe
             "https://example/universal.apk"
 
         // FOSS build never downloads a standard APK when no -foss APK is published
@@ -79,5 +80,16 @@ class YomuVersioningAndUpdaterTest {
         )
 
         ReleaseServiceImpl.selectDownloadLink(nonApkAssets, listOf("arm64-v8a"), isFoss = false).shouldBeNull()
+    }
+
+    @Test
+    fun `32-bit x86 never selects an x86_64 APK`() {
+        val assets = listOf(
+            GitHubAsset("yomu-v2.1.0-x86_64.apk", "https://example/x86_64.apk"),
+            GitHubAsset("yomu-v2.1.0-x86.apk", "https://example/x86.apk"),
+        )
+        ReleaseServiceImpl.selectDownloadLink(assets, listOf("x86"), isFoss = false) shouldBe
+            "https://example/x86.apk"
+        ReleaseServiceImpl.selectDownloadLink(assets.take(1), listOf("x86"), isFoss = false).shouldBeNull()
     }
 }
