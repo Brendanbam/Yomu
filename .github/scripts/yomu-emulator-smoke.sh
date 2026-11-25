@@ -15,9 +15,13 @@ adb() {
 
 adb start-server
 "$ANDROID_HOME/emulator/emulator" -avd yomu-ci -no-window -no-audio -no-snapshot \
-  -gpu swiftshader_indirect -no-boot-anim > "$OUT/emulator.log" 2>&1 &
+  -gpu swiftshader -feature -Vulkan -no-boot-anim > "$OUT/emulator.log" 2>&1 &
 EMULATOR_PID=$!
 cleanup() {
+  if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+    tail -80 "$OUT/emulator.log"
+    return
+  fi
   adb logcat -d > "$OUT/logcat.txt" 2>&1 || true
   adb logcat -d -b crash > "$OUT/crashes.txt" 2>&1 || true
   adb shell dumpsys activity activities > "$OUT/activities.txt" 2>&1 || true
