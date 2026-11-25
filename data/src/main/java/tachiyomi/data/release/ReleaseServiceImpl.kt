@@ -53,7 +53,7 @@ class ReleaseServiceImpl(
     companion object {
         private const val FOSS = "foss"
         private const val UNIVERSAL = "universal"
-        private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "riscv64")
 
         /**
          * Selects the best matching APK asset from a GitHub release:
@@ -70,26 +70,29 @@ class ReleaseServiceImpl(
             val apkAssets = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
             if (apkAssets.isEmpty()) return null
 
-            if (isFoss) {
-                return apkAssets.firstOrNull { "-$FOSS" in it.name.lowercase() }?.downloadLink
+            val channelApks = apkAssets.filter { asset ->
+                val tokens = asset.name.lowercase().removeSuffix(".apk").split('-')
+                (FOSS in tokens) == isFoss
             }
-
-            val standardApks = apkAssets.filterNot { "-$FOSS" in it.name.lowercase() }
-            if (standardApks.isEmpty()) return null
+            if (channelApks.isEmpty()) return null
 
             for (abi in supportedAbis) {
                 val abiLower = abi.lowercase()
-                val match = standardApks.firstOrNull { "-$abiLower" in it.name.lowercase() }
+                val match = channelApks.firstOrNull { asset ->
+                    asset.name.lowercase().removeSuffix(".apk").removeSuffix("-$FOSS").endsWith("-$abiLower")
+                }
                 if (match != null) return match.downloadLink
             }
 
             // Explicit universal fallback
-            standardApks.firstOrNull { "-$UNIVERSAL" in it.name.lowercase() }?.let {
+            channelApks.firstOrNull { asset ->
+                asset.name.lowercase().removeSuffix(".apk").removeSuffix("-$FOSS").endsWith("-$UNIVERSAL")
+            }?.let {
                 return it.downloadLink
             }
 
             // Generic APK without a specific ABI suffix
-            return standardApks.firstOrNull { asset ->
+            return channelApks.firstOrNull { asset ->
                 val lower = asset.name.lowercase()
                 KNOWN_ABIS.none { "-$it" in lower }
             }?.downloadLink
