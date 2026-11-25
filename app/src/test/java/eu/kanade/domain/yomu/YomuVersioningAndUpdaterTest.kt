@@ -80,4 +80,15 @@ class YomuVersioningAndUpdaterTest {
 
         ReleaseServiceImpl.selectDownloadLink(nonApkAssets, listOf("arm64-v8a"), isFoss = false).shouldBeNull()
     }
+
+    @Test
+    fun `32-bit x86 never selects an x86_64 APK`() {
+        val assets = listOf(
+            GitHubAsset("yomu-v2.1.0-x86_64.apk", "https://example/x86_64.apk"),
+            GitHubAsset("yomu-v2.1.0-x86.apk", "https://example/x86.apk"),
+        )
+        ReleaseServiceImpl.selectDownloadLink(assets, listOf("x86"), isFoss = false) shouldBe
+            "https://example/x86.apk"
+        ReleaseServiceImpl.selectDownloadLink(assets.take(1), listOf("x86"), isFoss = false).shouldBeNull()
+    }
 }
