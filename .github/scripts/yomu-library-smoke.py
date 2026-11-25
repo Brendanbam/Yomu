@@ -75,7 +75,9 @@ def restore_fixture():
     install_fixture()
     # A CI build can discover a newer published release during the first launch.
     with suppress(AssertionError):
-        tap("Not now", timeout=6)
+        find("Not now", timeout=6)
+        tap("Skip this version")
+        tap("Not now")
     tap("Next")
     tap("Select a folder")
     # DocumentsUI normally starts at the internal storage root on a clean AVD.
@@ -190,3 +192,5 @@ if __name__ == "__main__":
         with suppress(subprocess.SubprocessError):
             capture("failure")
         raise
+
+

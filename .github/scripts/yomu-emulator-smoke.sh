@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p "$RUNNER_TEMP/yomu-upgrade"
-curl --fail --location --retry 3 --output "$RUNNER_TEMP/yomu-upgrade/old.apk" "https://github.com/Brendanbam/Yomu/releases/download/v2.0.0/yomu-v2.0.0-x86_64.apk"
-curl --fail --location --retry 3 --output "$RUNNER_TEMP/yomu-upgrade/new.apk" "https://github.com/Brendanbam/Yomu/releases/download/v2.1.3/yomu-v2.1.3-x86_64.apk"
-APK="$RUNNER_TEMP/yomu-upgrade/new.apk"
-UPGRADE_FROM="$RUNNER_TEMP/yomu-upgrade/old.apk"
+APK="${1:?APK path required}"
+UPGRADE_FROM="${2:-}"
 PACKAGE=app.yomu
 ACTIVITY="$PACKAGE/eu.kanade.tachiyomi.ui.main.MainActivity"
 OUT=smoke-results
@@ -114,9 +111,13 @@ adb shell am force-stop "$PACKAGE"
 launch
 adb exec-out screencap -p > "$OUT/03-expanded-restart.png"
 
-python3 .github/scripts/yomu-library-smoke.py
+python3 .github/scripts/yomu-library-smoke.py --prepare-upgrade
+adb shell am force-stop "$PACKAGE"
+python3 .github/scripts/yomu-library-smoke.py --verify-upgrade
 assert_running
 
 adb shell wm size reset
 adb shell wm density reset
 echo "Launch, backup restore, reader launch, tablet controls, and restart checks passed."
+
+
