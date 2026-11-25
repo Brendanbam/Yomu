@@ -53,14 +53,14 @@ class ReleaseServiceImpl(
     companion object {
         private const val FOSS = "foss"
         private const val UNIVERSAL = "universal"
-        private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "riscv64")
+        private val KNOWN_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
 
         /**
          * Selects the best matching APK asset from a GitHub release:
          * - Only `.apk` assets are considered (checksums/notes are ignored).
-         * - FOSS builds only match `-foss` APKs.
-         * - Standard builds walk [supportedAbis] in device priority order, falling back
-         *   to `-universal.apk` or an untagged generic APK.
+         * - FOSS builds only match explicitly marked FOSS APKs.
+         * - Builds walk supported device ABIs in priority order, falling back only
+         *   to an explicitly named universal APK for a supported architecture.
          */
         fun selectDownloadLink(
             assets: List<GitHubAsset>,
@@ -76,8 +76,9 @@ class ReleaseServiceImpl(
             }
             if (channelApks.isEmpty()) return null
 
-            for (abi in supportedAbis) {
-                val abiLower = abi.lowercase()
+            val compatibleAbis = supportedAbis.map { it.lowercase() }.filter { it in KNOWN_ABIS }
+            if (compatibleAbis.isEmpty()) return null
+            for (abiLower in compatibleAbis) {
                 val match = channelApks.firstOrNull { asset ->
                     asset.name.lowercase().removeSuffix(".apk").removeSuffix("-$FOSS").endsWith("-$abiLower")
                 }
@@ -91,11 +92,8 @@ class ReleaseServiceImpl(
                 return it.downloadLink
             }
 
-            // Generic APK without a specific ABI suffix
-            return channelApks.firstOrNull { asset ->
-                val lower = asset.name.lowercase()
-                KNOWN_ABIS.none { "-$it" in lower }
-            }?.downloadLink
+            // Unknown APK naming cannot establish installation compatibility.
+            return null
         }
 
         /**
