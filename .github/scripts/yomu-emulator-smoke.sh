@@ -75,6 +75,9 @@ adb shell am force-stop "$PACKAGE"
 launch
 adb exec-out screencap -p > "$OUT/03-expanded-restart.png"
 
+python3 .github/scripts/yomu-library-smoke.py
+assert_running
+
 adb shell wm size reset
 adb shell wm density reset
-echo "Android startup, expanded-window resize, and restart smoke checks passed."
+echo "Launch, backup restore, reader launch, tablet controls, and restart checks passed."

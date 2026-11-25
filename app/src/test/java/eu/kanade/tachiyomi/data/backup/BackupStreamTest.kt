@@ -23,6 +23,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import java.io.IOException
+import java.util.zip.GZIPInputStream
 
 @Execution(ExecutionMode.CONCURRENT)
 class BackupStreamTest {
@@ -37,6 +38,21 @@ class BackupStreamTest {
 
         bytes shouldBe encode(backup)
         encode(parser.decodeFromByteArray(Backup.serializer(), bytes)) shouldBe encode(backup)
+    }
+
+    @Test
+    fun `reads chapter progress and categories written by Yomu 2_0`() {
+        val fixture = requireNotNull(javaClass.getResourceAsStream("/yomu-2.0-library.tachibk"))
+        val (books, metadata) = GZIPInputStream(fixture).use { read(it.readBytes()) }
+        val book = books.single()
+        book.title shouldBe "Paper Lanterns"
+        book.chapters.first().read shouldBe true
+        val resumed = book.chapters.last()
+        resumed.bookmark shouldBe true
+        resumed.lastPageRead shouldBe 4L
+        book.history.single().url shouldBe resumed.url
+        book.categories shouldBe listOf(0L, 1L)
+        metadata.backupCategories.map { it.name } shouldBe listOf("Reading", "Done")
     }
 
     @Test
