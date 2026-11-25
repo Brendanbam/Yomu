@@ -38,10 +38,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.history.interactor.GetHistory
-import tachiyomi.domain.history.interactor.GetNextChapters
+import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -66,9 +65,7 @@ class YomuHomeViewModel(
     private val getLibraryManga: GetLibraryManga,
     private val getManga: GetManga,
     private val getUpdates: GetUpdates,
-    private val getChapter: GetChapter,
     private val getChaptersByMangaId: GetChaptersByMangaId,
-    private val getNextChapters: GetNextChapters,
     private val getEnabledSources: GetEnabledSources,
     private val sourceManager: SourceManager,
     private val downloadCache: DownloadCache,
@@ -88,7 +85,7 @@ class YomuHomeViewModel(
     }
 
     private val libraryFlow: Flow<SectionLoadState<List<LibraryManga>>> = retryTrigger.flatMapLatest {
-        getLibraryManga.subscribe().asSectionLoadState()
+        getLibraryManga.subscribeStrict().asSectionLoadState()
     }
 
     private val historyFlow: Flow<SectionLoadState<List<HistoryWithRelations>>> = retryTrigger.flatMapLatest {
@@ -292,41 +289,21 @@ class YomuHomeViewModel(
         history: HistoryWithRelations,
         libraryEntry: LibraryManga?,
     ): YomuContinueReadingResolver.CandidateInput {
-        val manga = libraryEntry?.manga ?: getManga.await(history.mangaId)
-        val lastReadChapter = getChapter.await(history.chapterId)
-
-        // Match Mihon's exact chapter resume order:
-        // 1) Next unread chapter from the last read chapter onward (skipping any already-read chapters)
-        // 2) If none remain after lastReadChapter, fall back to any remaining unread chapter in the series
-        val nextAfterCurrent = getNextChapters.await(
-            mangaId = history.mangaId,
-            fromChapterId = history.chapterId,
-            onlyUnread = false,
-        ).firstOrNull { !it.read }
-
-        val nextResumable = nextAfterCurrent ?: getNextChapters.await(
-            mangaId = history.mangaId,
-            onlyUnread = true,
-        ).firstOrNull()
-
-        val readChaptersCount: Long
-        val totalChaptersCount: Long
-        if (libraryEntry != null) {
-            readChaptersCount = libraryEntry.readCount
-            totalChaptersCount = libraryEntry.totalChapters
-        } else {
-            val allChapters = getChaptersByMangaId.await(history.mangaId, applyScanlatorFilter = true)
-            totalChaptersCount = allChapters.size.toLong()
-            readChaptersCount = allChapters.count { it.read }.toLong()
-        }
+        val manga = libraryEntry?.manga ?: getManga.awaitStrict(history.mangaId)
+        // One strict, scanlator-filtered snapshot: lookup errors must not become caught-up cards.
+        val chapters = getChaptersByMangaId.awaitStrict(history.mangaId, applyScanlatorFilter = true)
+            .sortedWith(getChapterSort(manga, sortDescending = false))
+        val lastReadChapter = chapters.firstOrNull { it.id == history.chapterId }
+        val nextResumable = YomuContinueReadingResolver.nextUnreadAfterHistory(chapters, history.chapterId)
+        val totalChaptersCount = chapters.size.toLong()
+        val readChaptersCount = chapters.count { it.read }.toLong()
 
         val targetChapter = nextResumable ?: lastReadChapter
-        val isLocal = manga?.isLocal() == true
+        val isLocal = manga.isLocal()
         val isSourceAvailable = if (isLocal) {
             true
         } else {
-            val sourceId = manga?.source ?: history.coverData.sourceId
-            sourceManager.get(sourceId) != null
+            sourceManager.get(manga.source) != null
         }
 
         val isTargetDownloaded = when {
@@ -336,16 +313,16 @@ class YomuHomeViewModel(
                 chapterName = targetChapter.name,
                 chapterScanlator = targetChapter.scanlator,
                 chapterUrl = targetChapter.url,
-                mangaTitle = manga?.title ?: history.title,
-                sourceId = manga?.source ?: history.coverData.sourceId,
+                mangaTitle = manga.title,
+                sourceId = manga.source,
             )
         }
 
         return YomuContinueReadingResolver.CandidateInput(
             mangaId = history.mangaId,
-            title = manga?.title ?: history.title,
+            title = manga.title,
             coverData = history.coverData,
-            isInLibrary = libraryEntry != null || manga?.favorite == true,
+            isInLibrary = manga.favorite,
             isSourceAvailable = isSourceAvailable,
             lastReadChapter = lastReadChapter,
             nextResumableChapter = nextResumable,
