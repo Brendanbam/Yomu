@@ -37,8 +37,8 @@ android {
     defaultConfig {
         applicationId = "app.yomu"
 
-        versionCode = 39
-        versionName = "0.21.3"
+        versionCode = 100
+        versionName = "1.0.0"
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")

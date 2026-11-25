@@ -38,6 +38,15 @@ Because Yomu uses a distinct `applicationId` and signing key, do not attempt to 
 3. In **Yomu**, tap **Restore backup** on the empty Home screen (or go to **More → Data and storage → Restore backup**) and select your `.tachibk` file.
 4. Your library entries, categories, chapter read states, reading history, bookmarks, and tracker bindings will restore non-destructively.
 
+## Download & Auto-Updates with Obtainium
+
+1. Open **Obtainium** and tap **Add App**.
+2. Enter the repository URL: `https://github.com/Brendanbam/Yomu`
+3. Under **Filter APKs by Regular Expression**, set:
+   - `arm64-v8a` for modern Android phones & tablets (recommended)
+   - `universal` if you want the all-ABI APK
+4. Tap **Add** and **Install**. Whenever a new `v*` tag is pushed (or run via **Actions → Yomu Release**), GitHub Actions builds and publishes signed APKs automatically for Obtainium.
+
 ## Build Instructions
 
 Prerequisites: JDK 21 (or JDK 17+) and Android SDK (`local.properties` pointing to your SDK directory).
