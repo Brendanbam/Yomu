@@ -273,7 +273,8 @@ private fun NavigationSuiteItem(
     val inactive = MaterialTheme.colorScheme.onSurfaceVariant
     val itemColors = NavigationItemColors(
         selectedIconColor = primary,
-        selectedTextColor = primary,
+        selectedTextColorTopIconPosition = primary,
+        selectedTextColorStartIconPosition = primary,
         selectedIndicatorColor = primary.copy(alpha = 0.22f),
         unselectedIconColor = inactive,
         unselectedTextColor = inactive,

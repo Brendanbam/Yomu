@@ -68,13 +68,15 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 fun MangaScreen(
     mangaId: Long,
     fromSource: Boolean,
+    embeddedPane: Boolean = false,
+    onClosePane: (() -> Unit)? = null,
 ) {
     val navigator = LocalNavigator.current
     val resultEventBus = LocalResultEventBus.current
     val setAssistUrl = LocalAssistUrl.current
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val isTabletUi = isTabletUi()
+    val isTabletUi = if (embeddedPane) false else isTabletUi()
     val viewModel =
         assistedMetroViewModel<MangaViewModel, MangaViewModel.Factory> {
             create(mangaId = mangaId, isFromSource = fromSource)
@@ -106,10 +108,16 @@ fun MangaScreen(
         state = successState,
         snackbarHostState = viewModel.snackbarHostState,
         nextUpdate = successState.manga.expectedNextUpdate,
-        isTabletUi = isTabletUi(),
+        isTabletUi = isTabletUi,
         chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
         chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
-        navigateUp = navigator::pop,
+        navigateUp = {
+            if (onClosePane != null) {
+                onClosePane()
+            } else {
+                navigator.pop()
+            }
+        },
         onChapterClicked = { openChapter(context, it) },
         onDownloadChapter = viewModel::runChapterDownloadActions.takeIf { !successState.source.isLocalOrStub() },
         downloadProgressProvider = viewModel::getDownloadProgress,
