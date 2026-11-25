@@ -445,4 +445,3 @@ private fun SplitPaneMangaDetailsHost(
 }
 
 data class LibrarySearchEvent(val query: String)
-

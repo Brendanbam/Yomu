@@ -250,16 +250,32 @@ jobs:
           Add \`https://github.com/Brendanbam/Yomu\` in Obtainium and set **Filter APKs by Regular Expression** to \`arm64-v8a\\.apk$\` (or \`universal\\.apk$\`).
           EOF
 
-          gh release create "$TAG" \
-            release-assets/yomu-"${TAG}"-universal.apk \
-            release-assets/yomu-"${TAG}"-arm64-v8a.apk \
-            release-assets/yomu-"${TAG}"-armeabi-v7a.apk \
-            release-assets/yomu-"${TAG}"-x86.apk \
-            release-assets/yomu-"${TAG}"-x86_64.apk \
-            release-assets/yomu-"${TAG}"-checksums.sha256 \
-            --verify-tag \
-            --title "Yomu ${TAG}" \
-            --notes-file "${RUNNER_TEMP}/release-notes.md"
+          ASSETS=(
+            "release-assets/yomu-${TAG}-universal.apk"
+            "release-assets/yomu-${TAG}-arm64-v8a.apk"
+            "release-assets/yomu-${TAG}-armeabi-v7a.apk"
+            "release-assets/yomu-${TAG}-x86.apk"
+            "release-assets/yomu-${TAG}-x86_64.apk"
+            "release-assets/yomu-${TAG}-checksums.sha256"
+          )
+
+          # Retry transient GitHub Releases API 5xx errors and avoid half-published releases.
+          for attempt in 1 2 3; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              if gh release upload "$TAG" "${ASSETS[@]}" --clobber; then
+                exit 0
+              fi
+            elif gh release create "$TAG" "${ASSETS[@]}" \
+              --verify-tag \
+              --title "Yomu ${TAG}" \
+              --notes-file "${RUNNER_TEMP}/release-notes.md"; then
+              exit 0
+            fi
+            echo "GitHub release publish attempt ${attempt} failed; retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Failed to publish GitHub release ${TAG} after 3 attempts"
+          exit 1
 
       - name: Retain verified APKs if publication fails
         if: failure() && steps.publish.outcome == 'failure'
