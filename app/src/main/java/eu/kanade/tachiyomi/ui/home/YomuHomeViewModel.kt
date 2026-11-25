@@ -206,13 +206,25 @@ class YomuHomeViewModel(
             .take(9)
             .map { toShelfBook(it, downloadCountsByMangaId) }
 
-        val offlineItems = libraryList.mapNotNull { lib ->
+        val offlineItems = libraryList.distinctBy { it.id }.mapNotNull { lib ->
             val dlCount = if (lib.manga.isLocal()) {
                 lib.totalChapters.toInt()
             } else {
                 downloadCountsByMangaId[lib.manga.id] ?: 0
             }
-            if (dlCount > 0 || lib.manga.isLocal()) {
+            val nextChapter = if (!lib.manga.isLocal() && dlCount > 0 && lib.unreadCount > 0L) {
+                getNextChapters.await(lib.id).firstOrNull()
+            } else {
+                null
+            }
+            val isReady = lib.manga.isLocal() || (nextChapter != null && downloadCache.isChapterDownloaded(
+                chapterName = nextChapter.name,
+                chapterScanlator = nextChapter.scanlator,
+                chapterUrl = nextChapter.url,
+                mangaTitle = lib.manga.title,
+                sourceId = lib.manga.source,
+            ))
+            if (isReady) {
                 toShelfBook(lib, downloadCountsByMangaId)
             } else {
                 null
