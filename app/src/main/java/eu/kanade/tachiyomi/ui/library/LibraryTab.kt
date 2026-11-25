@@ -9,7 +9,9 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -322,10 +324,13 @@ fun LibraryTab() {
                                         .background(style.shelfPalette.goldAccent, YomuShapes.pill),
                                 )
                             }
+                            val inspectorPadding = PaddingValues(top = contentPadding.calculateTopPadding())
                             Box(
                                 modifier = Modifier
                                     .weight(1f - fraction)
                                     .fillMaxHeight()
+                                    .padding(inspectorPadding)
+                                    .consumeWindowInsets(inspectorPadding)
                                     .background(MaterialTheme.colorScheme.background),
                             ) {
                                 inspectedMangaId?.let { mangaId ->
@@ -440,3 +445,4 @@ private fun SplitPaneMangaDetailsHost(
 }
 
 data class LibrarySearchEvent(val query: String)
+

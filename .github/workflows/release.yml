@@ -233,6 +233,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Publish GitHub Release
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.meta.outputs.tag }}
@@ -258,5 +259,14 @@ jobs:
             release-assets/yomu-"${TAG}"-checksums.sha256 \
             --verify-tag \
             --title "Yomu ${TAG}" \
-            --notes-file "${RUNNER_TEMP}/release-notes.md" \
-            --generate-notes
+            --notes-file "${RUNNER_TEMP}/release-notes.md"
+
+      - name: Retain verified APKs if publication fails
+        if: failure() && steps.publish.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-apks-${{ steps.meta.outputs.tag }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 3
+

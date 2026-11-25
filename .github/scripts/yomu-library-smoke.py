@@ -41,8 +41,8 @@ def find(label, timeout=25):
     raise AssertionError(f"{label!r} missing from the screen")
 
 
-def tap(label):
-    x1, y1, x2, y2 = find(label)
+def tap(label, timeout=25):
+    x1, y1, x2, y2 = find(label, timeout=timeout)
     adb("shell", "input", "tap", (x1 + x2) // 2, (y1 + y2) // 2)
 
 
@@ -106,6 +106,9 @@ def main():
         time.sleep(0.5)
     else:
         raise AssertionError("Restored local chapter did not open the reader")
+    # Fresh Android profiles can show a system tutorial over the full-screen reader.
+    with suppress(AssertionError):
+        tap("Got it", timeout=6)
     capture("05b-local-reader")
     adb("shell", "input", "keyevent", "BACK")
     find("Chapter 2")
@@ -157,3 +160,4 @@ if __name__ == "__main__":
         with suppress(subprocess.SubprocessError):
             capture("failure")
         raise
+
