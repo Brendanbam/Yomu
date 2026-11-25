@@ -66,7 +66,7 @@ internal fun LibraryItem.toSmartShelfEntry(): SmartShelfEntry {
         latestUpload = lib.latestUpload,
         chapterFetchedAt = lib.chapterFetchedAt,
         lastRead = lib.lastRead,
-        hasNextReadableChapterDownloaded = isLocal || (unreadCount > 0L && downloadCount > 0),
+        hasNextReadableChapterDownloaded = hasNextReadableChapterDownloaded,
     )
 }
 
