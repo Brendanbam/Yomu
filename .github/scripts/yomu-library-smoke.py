@@ -5,6 +5,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 import zipfile
+from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -153,5 +154,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        capture("failure")
+        with suppress(subprocess.SubprocessError):
+            capture("failure")
         raise
