@@ -157,6 +157,14 @@ class YomuSmartShelfClassifierTest {
     }
 
     @Test
+    fun `downloaded read chapters never imply the next chapter is ready offline`() {
+        val misleadingCount = entry(totalChapters = 20L, readCount = 10L, downloadCount = 10)
+        val singleReadDownload = entry(totalChapters = 20L, readCount = 10L, downloadCount = 1)
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.READY_OFFLINE, misleadingCount, fixedNow).shouldBeFalse()
+        YomuSmartShelfClassifier.matches(YomuSmartShelf.READY_OFFLINE, singleReadDownload, fixedNow).shouldBeFalse()
+    }
+
+    @Test
     fun `single-pass classify builds consistent snapshot counts across all shelves`() {
         val items = listOf(
             entry(id = 1L, totalChapters = 10L, readCount = 8L, hasNextReadableChapterDownloaded = true),
