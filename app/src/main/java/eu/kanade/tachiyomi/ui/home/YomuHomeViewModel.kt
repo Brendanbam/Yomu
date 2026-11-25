@@ -265,7 +265,8 @@ class YomuHomeViewModel(
             updatesError = (updatesState as? SectionLoadState.Error)?.message,
             sourcesError = (sourcesState as? SectionLoadState.Error)?.message,
             hasLibraryError = libraryState is SectionLoadState.Error,
-            hasHistoryError = historyState is SectionLoadState.Error || (continueLookupError != null && continueReading == null),
+            hasHistoryError = historyState is SectionLoadState.Error ||
+                (continueLookupError != null && continueReading == null),
             hasUpdatesError = updatesState is SectionLoadState.Error,
             heroCover = heroCover,
             heroTitle = heroTitle,
