@@ -67,6 +67,7 @@ internal fun LibraryItem.toSmartShelfEntry(): SmartShelfEntry {
         chapterFetchedAt = lib.chapterFetchedAt,
         lastRead = lib.lastRead,
         hasNextReadableChapterDownloaded = hasNextReadableChapterDownloaded,
+        hasFullOfflineArchive = hasFullOfflineArchive,
     )
 }
 
