@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="${1:?APK path required}"
-UPGRADE_FROM="${2:-}"
+mkdir -p "$RUNNER_TEMP/yomu-upgrade"
+curl --fail --location --retry 3 --output "$RUNNER_TEMP/yomu-upgrade/old.apk" "https://github.com/Brendanbam/Yomu/releases/download/v2.0.0/yomu-v2.0.0-x86_64.apk"
+curl --fail --location --retry 3 --output "$RUNNER_TEMP/yomu-upgrade/new.apk" "https://github.com/Brendanbam/Yomu/releases/download/v2.1.3/yomu-v2.1.3-x86_64.apk"
+APK="$RUNNER_TEMP/yomu-upgrade/new.apk"
+UPGRADE_FROM="$RUNNER_TEMP/yomu-upgrade/old.apk"
 PACKAGE=app.yomu
 ACTIVITY="$PACKAGE/eu.kanade.tachiyomi.ui.main.MainActivity"
 OUT=smoke-results
@@ -82,14 +85,17 @@ if [ -n "$UPGRADE_FROM" ]; then
   adb install -g "$UPGRADE_FROM"
   adb logcat -c
   launch
+  python3 .github/scripts/yomu-library-smoke.py --prepare-upgrade
   first_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
   test -n "$first_install_time"
   adb install -r -g "$APK"
   launch
   updated_install_time="$(adb shell dumpsys package "$PACKAGE" | tr -d '\r' | sed -n 's/^[[:space:]]*firstInstallTime=//p')"
   test "$first_install_time" = "$updated_install_time"
+  python3 .github/scripts/yomu-library-smoke.py --verify-upgrade
+  assert_running
   adb exec-out screencap -p > "$OUT/01-signed-upgrade.png"
-  echo "Signed upgrade installed in place and launched."
+  echo "Signed upgrade preserved the restored library and launched."
   exit 0
 fi
 
@@ -114,4 +120,3 @@ assert_running
 adb shell wm size reset
 adb shell wm density reset
 echo "Launch, backup restore, reader launch, tablet controls, and restart checks passed."
-

@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 import zipfile
@@ -41,8 +42,8 @@ def find(label, timeout=25):
     raise AssertionError(f"{label!r} missing from the screen")
 
 
-def tap(label):
-    x1, y1, x2, y2 = find(label)
+def tap(label, timeout=25):
+    x1, y1, x2, y2 = find(label, timeout=timeout)
     adb("shell", "input", "tap", (x1 + x2) // 2, (y1 + y2) // 2)
 
 
@@ -68,10 +69,13 @@ def open_library():
     find("Paper Lanterns", timeout=60)
 
 
-def main():
+def restore_fixture():
     adb("shell", "wm", "size", "1080x1920")
     adb("shell", "wm", "density", "420")
     install_fixture()
+    # A CI build can discover a newer published release during the first launch.
+    with suppress(AssertionError):
+        tap("Not now", timeout=6)
     tap("Next")
     tap("Select a folder")
     # DocumentsUI normally starts at the internal storage root on a clean AVD.
@@ -93,6 +97,24 @@ def main():
         "-d", path + f"primary%3A{STORAGE_FOLDER}%2Flibrary.tachibk")
     tap("Restore")
     open_library()
+    find("Reading")
+    find("Done")
+
+
+def verify_restored_library():
+    open_library()
+    find("Reading")
+    find("Done")
+    tap("Paper Lanterns")
+    find("Chapter 1")
+    find("Chapter 2")
+    find("Page: 5")
+    adb("shell", "input", "keyevent", "BACK")
+    open_library()
+
+
+def main():
+    restore_fixture()
     capture("04-restored-phone-library")
     tap("Paper Lanterns")
     find("Chapter 2")
@@ -106,6 +128,9 @@ def main():
         time.sleep(0.5)
     else:
         raise AssertionError("Restored local chapter did not open the reader")
+    # Fresh Android profiles can show a system tutorial over the full-screen reader.
+    with suppress(AssertionError):
+        tap("Got it", timeout=6)
     capture("05b-local-reader")
     adb("shell", "input", "keyevent", "BACK")
     find("Chapter 2")
@@ -152,7 +177,15 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:] == ["--prepare-upgrade"]:
+            restore_fixture()
+            verify_restored_library()
+        elif sys.argv[1:] == ["--verify-upgrade"]:
+            verify_restored_library()
+        elif not sys.argv[1:]:
+            main()
+        else:
+            raise ValueError("Unknown smoke test arguments")
     except Exception:
         with suppress(subprocess.SubprocessError):
             capture("failure")
