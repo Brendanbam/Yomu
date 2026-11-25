@@ -35,21 +35,27 @@ val yomuVersionNameOverride = providers.gradleProperty("yomuVersionName").orNull
     ?: System.getenv("YOMU_VERSION_NAME")?.takeIf { it.isNotBlank() }
 val resolvedYomuVersionName = yomuVersionNameOverride?.removePrefix("v")?.trim() ?: "2.0.0"
 
-val yomuVersionCodeOverride = (
-    providers.gradleProperty("yomuVersionCode").orNull
-        ?: System.getenv("YOMU_VERSION_CODE")?.takeIf { it.isNotBlank() }
-    )?.toIntOrNull()
+val yomuVersionCodeOverride = providers.gradleProperty("yomuVersionCode").orNull
+    ?: System.getenv("YOMU_VERSION_CODE")?.takeIf { it.isNotBlank() }
 
-val resolvedYomuVersionCode = yomuVersionCodeOverride ?: run {
-    val parts = resolvedYomuVersionName.substringBefore("-").split(".").mapNotNull { it.toIntOrNull() }
-    if (parts.size >= 3) {
-        // Monotonic SemVer-derived versionCode strictly greater than v1.0.0 (100):
-        // e.g. 1.0.1 -> 10001, 2.0.0 -> 20000, 2.1.3 -> 20103
-        parts[0] * 10_000 + parts[1] * 100 + parts[2]
-    } else {
-        20_000
-    }
+val versionParts = resolvedYomuVersionName.split(".")
+require(versionParts.size == 3 && versionParts.all { it.matches(Regex("0|[1-9][0-9]*")) }) {
+    "Yomu version must be a canonical MAJOR.MINOR.PATCH version"
 }
+val major = versionParts[0].toLongOrNull() ?: error("Invalid major version")
+val minor = versionParts[1].toIntOrNull() ?: error("Invalid minor version")
+val patch = versionParts[2].toIntOrNull() ?: error("Invalid patch version")
+require(major in 1L..209_999L && minor in 0..99 && patch in 0..99) {
+    "Yomu version components exceed the supported versionCode ranges"
+}
+val calculatedYomuVersionCode = (major * 10_000 + minor * 100 + patch).toInt()
+val resolvedYomuVersionCode = yomuVersionCodeOverride?.let {
+    val override = it.toIntOrNull() ?: error("Invalid Yomu versionCode")
+    require(override == calculatedYomuVersionCode) {
+        "Yomu versionCode must match the semantic version calculation"
+    }
+    override
+} ?: calculatedYomuVersionCode
 
 android {
     namespace = "eu.kanade.tachiyomi"
