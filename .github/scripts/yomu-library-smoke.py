@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 
 OUT = Path("smoke-results")
 FIXTURE = Path("app/src/test/resources/yomu-2.0-library.tachibk")
+STORAGE_FOLDER = "00-YomuQA"
 ACTIVITY = "app.yomu/eu.kanade.tachiyomi.ui.main.MainActivity"
 DIVIDER = "Resize library and manga details panels"
 
@@ -20,8 +21,8 @@ def adb(*args):
 
 
 def hierarchy():
-    adb("shell", "uiautomator", "dump", "/sdcard/yomu-ui.xml")
-    xml = adb("exec-out", "cat", "/sdcard/yomu-ui.xml")
+    adb("shell", "uiautomator", "dump", "/data/local/tmp/yomu-ui.xml")
+    xml = adb("exec-out", "cat", "/data/local/tmp/yomu-ui.xml")
     (OUT / "last-hierarchy.xml").write_bytes(xml)
     return ET.fromstring(xml)
 
@@ -50,7 +51,7 @@ def capture(name):
 
 def install_fixture():
     with TemporaryDirectory() as temp:
-        storage = Path(temp) / "YomuQA"
+        storage = Path(temp) / STORAGE_FOLDER
         series = storage / "local" / "Paper Lanterns"
         series.mkdir(parents=True)
         (storage / "library.tachibk").write_bytes(FIXTURE.read_bytes())
@@ -74,11 +75,11 @@ def main():
     tap("Select a folder")
     # DocumentsUI normally starts at the internal storage root on a clean AVD.
     try:
-        find("YomuQA", timeout=5)
+        find(STORAGE_FOLDER, timeout=5)
     except AssertionError:
         tap("Show roots")
         tap(adb("shell", "getprop", "ro.product.model").decode().strip())
-    tap("YomuQA")
+    tap(STORAGE_FOLDER)
     tap("Use this folder")
     tap("Allow")
     tap("Next")
@@ -86,9 +87,9 @@ def main():
     tap("Get started")
     find("Library")
 
-    path = "content://com.android.externalstorage.documents/tree/primary%3AYomuQA/document/"
+    path = f"content://com.android.externalstorage.documents/tree/primary%3A{STORAGE_FOLDER}/document/"
     adb("shell", "am", "start", "-W", "-n", ACTIVITY, "-a", "android.intent.action.VIEW",
-        "-d", path + "primary%3AYomuQA%2Flibrary.tachibk")
+        "-d", path + f"primary%3A{STORAGE_FOLDER}%2Flibrary.tachibk")
     tap("Restore")
     open_library()
     capture("04-restored-phone-library")
