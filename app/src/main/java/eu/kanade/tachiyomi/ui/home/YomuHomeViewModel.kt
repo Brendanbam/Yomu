@@ -13,7 +13,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.YomuHomeSection
 import eu.kanade.domain.yomu.YomuContinueReadingResolver
 import eu.kanade.domain.yomu.YomuContinueReadingState
-import eu.kanade.domain.yomu.isNextUnreadChapterDownloaded
+import eu.kanade.domain.yomu.getOfflineAvailability
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.model.SManga
@@ -223,12 +223,11 @@ class YomuHomeViewModel(
             } else {
                 downloadCountsByMangaId[lib.manga.id] ?: 0
             }
-            val isReady = lib.isNextUnreadChapterDownloaded(
+            val isReady = lib.getOfflineAvailability(
                 dlCount,
                 getChaptersByMangaId,
-                downloadManager,
                 downloadCache,
-            )
+            ).nextUnreadDownloaded
             if (isReady) {
                 toShelfBook(lib, downloadCountsByMangaId)
             } else {
