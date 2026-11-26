@@ -20,7 +20,6 @@ val CoverHeight = 87.dp
 fun UpdatesMangaCover(
     cover: Bitmap?,
     modifier: GlanceModifier = GlanceModifier,
-    contentDescription: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -30,7 +29,7 @@ fun UpdatesMangaCover(
         if (cover != null) {
             Image(
                 provider = ImageProvider(cover),
-                contentDescription = contentDescription,
+                contentDescription = null,
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .appWidgetInnerRadius(),
@@ -40,7 +39,7 @@ fun UpdatesMangaCover(
             // Enjoy placeholder
             Image(
                 provider = ImageProvider(R.drawable.appwidget_cover_error),
-                contentDescription = contentDescription,
+                contentDescription = null,
                 modifier = GlanceModifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
