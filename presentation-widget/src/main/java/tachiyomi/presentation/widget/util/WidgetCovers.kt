@@ -20,24 +20,32 @@ import tachiyomi.presentation.widget.components.CoverHeight
 import tachiyomi.presentation.widget.components.CoverWidth
 
 /** Loads [cover] at the widget cover size. */
-@OptIn(ExperimentalCoilApi::class)
 internal suspend fun Context.loadWidgetCover(cover: MangaCover): Bitmap? {
-    val widthPx = CoverWidth.value.toInt().dpToPx
-    val heightPx = CoverHeight.value.toInt().dpToPx
     val roundPx = resources.getDimension(R.dimen.appwidget_inner_radius)
+    return loadCover(
+        cover = cover,
+        widthPx = CoverWidth.value.toInt().dpToPx,
+        heightPx = CoverHeight.value.toInt().dpToPx,
+        // Rounded by the system from Android 12
+        cornerRadiusPx = roundPx.takeIf { Build.VERSION.SDK_INT < Build.VERSION_CODES.S },
+    )
+}
+
+/** Loads [cover] cropped to exactly [widthPx] by [heightPx]. */
+@OptIn(ExperimentalCoilApi::class)
+internal suspend fun Context.loadCover(
+    cover: MangaCover,
+    widthPx: Int,
+    heightPx: Int,
+    cornerRadiusPx: Float? = null,
+): Bitmap? {
     val request = ImageRequest.Builder(this)
         .data(cover)
         .memoryCachePolicy(CachePolicy.DISABLED)
         .precision(Precision.EXACT)
         .size(widthPx, heightPx)
         .scale(Scale.FILL)
-        .let {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                it.transformations(RoundedCornersTransformation(roundPx))
-            } else {
-                it // Handled by system
-            }
-        }
+        .let { if (cornerRadiusPx != null) it.transformations(RoundedCornersTransformation(cornerRadiusPx)) else it }
         .build()
     return imageLoader.execute(request)
         .image
