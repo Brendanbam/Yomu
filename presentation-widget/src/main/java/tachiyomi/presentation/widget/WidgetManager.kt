@@ -23,14 +23,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.history.interactor.GetHistory
+import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.updates.interactor.GetUpdates
 
 @Inject
 class WidgetManager(
     private val getUpdates: GetUpdates,
     private val securityPreferences: SecurityPreferences,
-    private val getHistory: GetHistory,
+    private val getLibraryManga: GetLibraryManga,
 ) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -47,11 +47,12 @@ class WidgetManager(
             .distinctUntilChanged()
             .flatMapLatest { placed ->
                 if (placed) {
-                    combine(getHistory.subscribe(""), securityPreferences.useAuthenticator.changes()) {
-                            history,
+                    combine(getLibraryManga.subscribe(), securityPreferences.useAuthenticator.changes()) {
+                            library,
                             locked,
                         ->
-                        history.firstOrNull()?.title to locked
+                        library.sortedWith(ReadingGlanceWidget.LastReadOrder)
+                            .map { it.id to it.manga.coverLastModified } to locked
                     }
                 } else {
                     emptyFlow()
