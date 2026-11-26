@@ -164,7 +164,10 @@ class ReadingGlanceWidget : GlanceAppWidget() {
                 shelf == null -> Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Foreground)
                 }
-                shelf.books.isEmpty() -> Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                shelf.books.isEmpty() -> Box(
+                    modifier = GlanceModifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
                         text = context.stringResource(MR.strings.yomu_widget_empty),
                         style = TextStyle(color = Foreground),

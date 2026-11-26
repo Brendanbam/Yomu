@@ -264,7 +264,12 @@ internal object WidgetBookshelf {
             floatArrayOf(0f, 0.35f, 0.85f, 1f),
             Shader.TileMode.CLAMP,
         )
-        canvas.drawRoundRect(RectF(cw - 2 * density, 1.5f * density, widthPx.toFloat(), h - density), corner, corner, paint)
+        canvas.drawRoundRect(
+            RectF(cw - 2 * density, 1.5f * density, widthPx.toFloat(), h - density),
+            corner,
+            corner,
+            paint,
+        )
         paint.shader = null
         paint.color = alpha(BOOK_PAGE_LINE, 0.65f)
         paint.strokeWidth = 0.65f * density
@@ -285,7 +290,12 @@ internal object WidgetBookshelf {
             0f,
             spine,
             0f,
-            intArrayOf(alpha(Color.BLACK, 0.44f), alpha(Color.WHITE, 0.14f), alpha(Color.BLACK, 0.18f), Color.TRANSPARENT),
+            intArrayOf(
+                alpha(Color.BLACK, 0.44f),
+                alpha(Color.WHITE, 0.14f),
+                alpha(Color.BLACK, 0.18f),
+                Color.TRANSPARENT,
+            ),
             floatArrayOf(0f, 0.34f, 0.66f, 1f),
             Shader.TileMode.CLAMP,
         )
