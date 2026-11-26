@@ -141,7 +141,7 @@ class ReadingGlanceWidget : GlanceAppWidget() {
         val maxColumns = ((inner + BookGap) / (MinBookWidth + BookGap)).toInt().coerceIn(1, 6)
         val fitsHeight = (height - HeaderHeight - TierTopGap - PlankHeight) / WidgetBookshelf.BOOK_ASPECT
         // Spare height goes to fewer, bigger books, keeping at least three on a shelf
-        val columns = (minOf(MinColumns, maxColumns)..maxColumns)
+        val columns = (minOf(MIN_COLUMNS, maxColumns)..maxColumns)
             .firstOrNull { widthFor(it) <= minOf(fitsHeight, MaxBookWidth) }
             ?: maxColumns
         val bookWidth = minOf(widthFor(columns), fitsHeight, MaxBookWidth).coerceAtLeast(24.dp)
@@ -245,7 +245,7 @@ class ReadingGlanceWidget : GlanceAppWidget() {
         private val BookGap = 10.dp
         private val MinBookWidth = 72.dp
         private val MaxBookWidth = 140.dp
-        private const val MinColumns = 3
+        private const val MIN_COLUMNS = 3
         private val TierTopGap = 10.dp
         private val PlankHeight = 28.dp
 
