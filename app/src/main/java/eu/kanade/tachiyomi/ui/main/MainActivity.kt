@@ -665,14 +665,22 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_RESUME_READING -> {
                 if (graph.securityPreferences.useAuthenticator.get()) return false
                 navigator.popToRoot()
+                val requestedMangaId = intent.getLongExtra(Constants.MANGA_EXTRA, -1L).takeIf { it != -1L }
                 lifecycleScope.launch {
-                    val history = historyRepository.getLastHistory() ?: return@launch
-                    val chapters = getNextChapters.await(history.mangaId, onlyUnread = false)
-                    val next = YomuContinueReadingResolver.nextUnreadAfterHistory(chapters, history.chapterId)
+                    val (mangaId, lastChapterId) = if (requestedMangaId != null) {
+                        val lastRead = historyRepository.getHistoryByMangaId(requestedMangaId)
+                            .maxByOrNull { it.readAt?.toEpochMilliseconds() ?: 0L }
+                        requestedMangaId to lastRead?.chapterId
+                    } else {
+                        val history = historyRepository.getLastHistory() ?: return@launch
+                        history.mangaId to history.chapterId
+                    }
+                    val chapters = getNextChapters.await(mangaId, onlyUnread = false)
+                    val next = YomuContinueReadingResolver.nextUnreadAfterHistory(chapters, lastChapterId ?: -1L)
                     if (next != null) {
                         startActivity(ReaderActivity.newIntent(this@MainActivity, next.mangaId, next.id))
                     } else {
-                        navigator.push(MangaRoute(history.mangaId))
+                        navigator.push(MangaRoute(mangaId))
                     }
                 }
                 null
