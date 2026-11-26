@@ -9,6 +9,7 @@ import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import coil3.request.transformations
 import coil3.size.Precision
 import coil3.size.Scale
@@ -45,6 +46,8 @@ internal suspend fun Context.loadCover(
         .precision(Precision.EXACT)
         .size(widthPx, heightPx)
         .scale(Scale.FILL)
+        // Covers are drawn onto software canvases, which can't read hardware bitmaps
+        .allowHardware(false)
         .let { if (cornerRadiusPx != null) it.transformations(RoundedCornersTransformation(cornerRadiusPx)) else it }
         .build()
     return imageLoader.execute(request)

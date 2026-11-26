@@ -51,6 +51,8 @@ internal object WidgetBookshelf {
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+        // Paint alpha left by a line color would fade the gradient
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -74,6 +76,7 @@ internal object WidgetBookshelf {
             canvas.drawLine(x + density, 0f, x + density, h, paint)
         }
 
+        paint.alpha = 255
         paint.shader = RadialGradient(
             w / 2f,
             0f,
@@ -87,6 +90,7 @@ internal object WidgetBookshelf {
         val stile = 6 * density
         val stileShadow = alpha(SHELF_UNDER_SHADOW, 0.82f)
         val stileMid = alpha(SHELF_FRONT_TOP, 0.55f)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -97,6 +101,7 @@ internal object WidgetBookshelf {
             Shader.TileMode.CLAMP,
         )
         canvas.drawRect(0f, 0f, stile, h, paint)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             w - stile,
             0f,
@@ -123,6 +128,7 @@ internal object WidgetBookshelf {
 
         val lit = blend(SHELF_TOP_BASE, SHELF_TOP_LIT, 0.71f)
         val brightest = blend(SHELF_TOP_BASE, SHELF_TOP_LIT, 0.93f)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -133,6 +139,7 @@ internal object WidgetBookshelf {
             Shader.TileMode.CLAMP,
         )
         canvas.drawRect(0f, 0f, w, ledge, paint)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -144,6 +151,7 @@ internal object WidgetBookshelf {
         )
         canvas.drawRect(0f, 0f, w, ledge * 0.78f, paint)
 
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             ledge,
@@ -159,6 +167,7 @@ internal object WidgetBookshelf {
             Shader.TileMode.CLAMP,
         )
         canvas.drawRect(0f, ledge, w, faceBottom, paint)
+        paint.alpha = 255
         paint.shader = RadialGradient(
             w / 2f,
             ledge + face * 0.15f,
@@ -169,6 +178,7 @@ internal object WidgetBookshelf {
         )
         canvas.drawRect(0f, ledge, w, faceBottom, paint)
         val edgeShade = alpha(SHELF_UNDER_SHADOW, 0.42f)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -205,6 +215,7 @@ internal object WidgetBookshelf {
         paint.style = Paint.Style.FILL
 
         paint.strokeWidth = 1.25f * density
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -226,6 +237,7 @@ internal object WidgetBookshelf {
         paint.color = alpha(SHELF_UNDER_SHADOW, 0.75f)
         canvas.drawLine(0f, faceBottom - 0.5f * density, w, faceBottom - 0.5f * density, paint)
 
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             faceBottom,
@@ -252,9 +264,10 @@ internal object WidgetBookshelf {
         val h = heightPx.toFloat()
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val corner = 2.5f * density
 
+        paint.alpha = 255
         paint.shader = LinearGradient(
             cw,
             0f,
@@ -283,8 +296,11 @@ internal object WidgetBookshelf {
         canvas.save()
         canvas.clipPath(Path().apply { addRoundRect(board, corner, corner, Path.Direction.CW) })
         canvas.drawColor(CARD_SURFACE)
-        if (cover != null) canvas.drawBitmap(cover, centerCrop(cover, cw / h), board, paint)
+        if (cover != null) {
+            canvas.drawBitmap(cover, centerCrop(cover, cw / h), board, Paint(Paint.FILTER_BITMAP_FLAG))
+        }
         val spine = 7.5f * density
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
@@ -300,6 +316,7 @@ internal object WidgetBookshelf {
             Shader.TileMode.CLAMP,
         )
         canvas.drawRect(0f, 0f, spine, h, paint)
+        paint.alpha = 255
         paint.shader = LinearGradient(
             0f,
             0f,
