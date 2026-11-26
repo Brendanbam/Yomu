@@ -32,13 +32,11 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
-import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -111,7 +109,12 @@ class ReadingGlanceWidget : GlanceAppWidget() {
         val (coverWidth, coverHeight) = WidgetBookshelf.coverSize(bookPx)
         return withContext(Dispatchers.Default) {
             Shelf(
-                wall = WidgetBookshelf.wall(widthPx, (shelfLayout.tierHeight.value * scale).roundToInt(), scale),
+                // The wall is soft gradients and is stretched anyway, so it's drawn at 1x to save memory
+                wall = WidgetBookshelf.wall(
+                    size.width.value.roundToInt().coerceAtLeast(1),
+                    shelfLayout.tierHeight.value.roundToInt(),
+                    density = 1f,
+                ),
                 plank = WidgetBookshelf.plank(widthPx, (PlankHeight.value * scale).roundToInt(), scale),
                 books = sortedWith(LastReadOrder)
                     .take(count)
@@ -188,14 +191,15 @@ class ReadingGlanceWidget : GlanceAppWidget() {
             repeat(shelfLayout.rows) { index ->
                 Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight().background(wall)) {
                     Row(
-                        modifier = GlanceModifier.fillMaxWidth().defaultWeight().padding(horizontal = SidePadding),
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .defaultWeight()
+                            .padding(horizontal = SidePadding - BookGap / 2),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalAlignment = Alignment.Bottom,
                     ) {
-                        rows.getOrNull(index)?.forEachIndexed { slot, book ->
-                            if (slot > 0) Spacer(modifier = GlanceModifier.width(BookGap))
-                            ShelfBook(book, shelfLayout)
-                        }
+                        // Gaps are padding, not spacers: Glance allows only 10 children in a row
+                        rows.getOrNull(index)?.forEach { ShelfBook(it, shelfLayout) }
                     }
                     Image(
                         provider = plank,
@@ -223,7 +227,8 @@ class ReadingGlanceWidget : GlanceAppWidget() {
             contentDescription = book.title,
             contentScale = ContentScale.Fit,
             modifier = GlanceModifier
-                .size(shelfLayout.bookWidth, shelfLayout.bookHeight)
+                .size(shelfLayout.bookWidth + BookGap, shelfLayout.bookHeight)
+                .padding(horizontal = BookGap / 2)
                 .clickable(actionStartActivity(intent)),
         )
     }
